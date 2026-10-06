@@ -600,3 +600,20 @@ export const academicHistory = pgTable('academic_history', {
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
+export const studentAttendance = pgTable('student_attendance', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id')
+    .notNull()
+    .references(() => school.id, { onDelete: 'cascade' }),
+  studentId: uuid('student_id')
+    .notNull()
+    .references(() => student.id, { onDelete: 'cascade' }),
+  classId: uuid('class_id').references(() => schoolClass.id, { onDelete: 'set null' }),
+  date: date('date').notNull(),
+  status: text('status').notNull().default('present'), // 'present' | 'absent' | 'justified' | 'late'
+  notes: text('notes'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+

@@ -1,11 +1,25 @@
 import { cn } from '@/lib/utils'
 
-export function Card({ className, ...props }: React.ComponentProps<'section'>) {
+export function Card({
+  title,
+  description,
+  action,
+  className,
+  children,
+  ...props
+}: React.ComponentProps<'section'> & {
+  title?: string
+  description?: string
+  action?: React.ReactNode
+}) {
   return (
     <section
       className={cn('rounded-xl border border-border bg-card text-card-foreground', className)}
       {...props}
-    />
+    >
+      {title ? <CardHeader title={title} description={description} action={action} /> : null}
+      {children}
+    </section>
   )
 }
 

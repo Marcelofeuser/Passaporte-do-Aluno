@@ -12,6 +12,7 @@ import {
   notification,
   school,
   schoolClass,
+  studentAttendance,
 } from '@/lib/db/schema'
 import { ATTENDANCE_STATUS, isAttendanceStatus, isISODate, todayISO, type AttendanceStatus } from '@/lib/attendance'
 import {
@@ -232,3 +233,205 @@ export async function updateAttendanceSettings(_: ActionState, formData: FormDat
     return { ok: true, message: 'Critérios de frequência salvos.' }
   })
 }
+
+export type AttendanceStatusValue = 'present' | 'absent' | 'justified' | 'late'
+
+export interface AttendanceInput {
+  schoolId: string
+  studentId: string
+  classId?: string
+  date: string
+  status: AttendanceStatusValue
+  notes?: string
+}
+
+export interface BatchAttendanceInput {
+  schoolId: string
+  classId?: string
+  date: string
+  records: Array<{
+    studentId: string
+    status: AttendanceStatusValue
+    notes?: string
+  }>
+}
+
+/**
+ * Registra ou atualiza a assiduidade individual ou em lote para uma turma/data (Fase 11).
+ */
+export async function recordAttendance(data: AttendanceInput | BatchAttendanceInput) {
+  try {
+    if (!data.schoolId || !data.date) {
+      return { success: false, error: 'Escola e data são obrigatórias para registro de frequência.' }
+    }
+
+    // Se for lote
+    if ('records' in data && Array.isArray(data.records)) {
+      if (data.records.length === 0) {
+        return { success: false, error: 'Nenhum aluno informado no lote.' }
+      }
+
+      await db.transaction(async (tx) => {
+        for (const item of data.records) {
+          const [existing] = await tx
+            .select({ id: studentAttendance.id })
+            .from(studentAttendance)
+            .where(
+              and(
+                eq(studentAttendance.schoolId, data.schoolId),
+                eq(studentAttendance.studentId, item.studentId),
+                eq(studentAttendance.date, data.date),
+              ),
+            )
+
+          if (existing) {
+            await tx
+              .update(studentAttendance)
+              .set({
+                status: item.status,
+                classId: data.classId || null,
+                notes: item.notes || null,
+                updatedAt: new Date(),
+              })
+              .where(eq(studentAttendance.id, existing.id))
+          } else {
+            await tx.insert(studentAttendance).values({
+              schoolId: data.schoolId,
+              studentId: item.studentId,
+              classId: data.classId || null,
+              date: data.date,
+              status: item.status,
+              notes: item.notes || null,
+            })
+          }
+        }
+      })
+
+      revalidatePath('/school/attendance')
+      return { success: true, count: data.records.length }
+    }
+
+    // Se for individual
+    const single = data as AttendanceInput
+    if (!single.studentId) {
+      return { success: false, error: 'Aluno é obrigatório.' }
+    }
+
+    const [existing] = await db
+      .select({ id: studentAttendance.id })
+      .from(studentAttendance)
+      .where(
+        and(
+          eq(studentAttendance.schoolId, single.schoolId),
+          eq(studentAttendance.studentId, single.studentId),
+          eq(studentAttendance.date, single.date),
+        ),
+      )
+
+    let record
+    if (existing) {
+      const [updated] = await db
+        .update(studentAttendance)
+        .set({
+          status: single.status,
+          classId: single.classId || null,
+          notes: single.notes || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(studentAttendance.id, existing.id))
+        .returning()
+      record = updated
+    } else {
+      const [inserted] = await db
+        .insert(studentAttendance)
+        .values({
+          schoolId: single.schoolId,
+          studentId: single.studentId,
+          classId: single.classId || null,
+          date: single.date,
+          status: single.status,
+          notes: single.notes || null,
+        })
+        .returning()
+      record = inserted
+    }
+
+    revalidatePath('/school/attendance')
+    return { success: true, data: record }
+  } catch (error: any) {
+    console.error('Erro ao registrar frequência:', error)
+    return { success: false, error: error.message || 'Erro ao registrar frequência.' }
+  }
+}
+
+/**
+ * Retorna o resumo de presenças, faltas e taxa de assiduidade do aluno (Fase 11).
+ */
+export async function getStudentAttendanceSummary(studentId: string, schoolId: string) {
+  try {
+    if (!studentId || !schoolId) {
+      return { success: false, error: 'studentId e schoolId são obrigatórios.' }
+    }
+
+    const records = await db
+      .select({
+        id: studentAttendance.id,
+        status: studentAttendance.status,
+        date: studentAttendance.date,
+        notes: studentAttendance.notes,
+        classId: studentAttendance.classId,
+      })
+      .from(studentAttendance)
+      .where(and(eq(studentAttendance.schoolId, schoolId), eq(studentAttendance.studentId, studentId)))
+
+    const total = records.length
+    const present = records.filter((r) => r.status === 'present').length
+    const absent = records.filter((r) => r.status === 'absent').length
+    const justified = records.filter((r) => r.status === 'justified').length
+    const late = records.filter((r) => r.status === 'late').length
+
+    const attendanceRate = total > 0 ? Math.round(((present + late) / total) * 100) : 100
+
+    return {
+      success: true,
+      summary: {
+        total,
+        present,
+        absent,
+        justified,
+        late,
+        attendanceRate,
+      },
+      records,
+    }
+  } catch (error: any) {
+    console.error('Erro ao buscar resumo de assiduidade:', error)
+    return { success: false, error: error.message || 'Erro ao buscar resumo de assiduidade.' }
+  }
+}
+
+/**
+ * Server Action auxiliar para formulários de lançamento rápido de frequência.
+ */
+export async function submitQuickAttendanceAction(formData: FormData): Promise<void> {
+  const schoolId = String(formData.get('schoolId') ?? '')
+  const studentId = String(formData.get('studentId') ?? '')
+  const classId = String(formData.get('classId') ?? '') || undefined
+  const date = String(formData.get('date') ?? '') || todayISO()
+  const status = (String(formData.get('status') ?? 'present')) as AttendanceStatusValue
+  const notes = String(formData.get('notes') ?? '').trim() || undefined
+
+  if (!schoolId || !studentId) {
+    return
+  }
+
+  await recordAttendance({
+    schoolId,
+    studentId,
+    classId,
+    date,
+    status,
+    notes,
+  })
+}
+

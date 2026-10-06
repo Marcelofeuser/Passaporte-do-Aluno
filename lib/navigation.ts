@@ -34,6 +34,7 @@ export type SchoolSection = {
 
 export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/students', label: 'Alunos', description: 'Cadastro, responsáveis, matrícula e documentos', permission: 'school:view_students' },
+  { href: '/school/enrollments', label: 'Matrículas', description: 'Ingressos, rematrículas, contratos e situação documental', permission: 'school:view_students' },
   { href: '/school/classes', label: 'Turmas', description: 'Turmas por ano letivo, disciplinas e alunos', permission: 'school:view_academic' },
   { href: '/school/grades', label: 'Diário e notas', description: 'Avaliações, lançamento de notas e médias', permission: 'school:manage_grades' },
   { href: '/school/attendance', label: 'Chamada e frequência', description: 'Presenças, faltas, atrasos e alertas', permission: 'school:manage_attendance' },
