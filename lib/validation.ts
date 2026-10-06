@@ -177,11 +177,67 @@ export const classSubjectInput = z.object({
   classId: id,
   subjectId: id,
   teacherId: optionalId,
+  workloadHours: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v) : null))
+    .refine((v) => v === null || (Number.isInteger(v) && v > 0 && v <= 2000), 'Carga horária inválida'),
 })
 
 export const teacherSubjectInput = z.object({ teacherId: id, subjectId: id })
 
-export const enrollmentInput = z.object({ studentId: id, classId: id })
+export const ENROLLMENT_STATUS = {
+  ACTIVE: 'Ativa',
+  TRANSFERRED: 'Transferida',
+  COMPLETED: 'Concluída',
+  CANCELLED: 'Cancelada',
+} as const
+
+export const enrollmentInput = z.object({ studentId: id, classId: id, enrolledOn: optionalDate })
+
+export const enrollmentStatusInput = z.object({
+  enrollmentId: id,
+  status: z.enum(['TRANSFERRED', 'COMPLETED', 'CANCELLED'], 'Situação inválida'),
+  changedOn: optionalDate,
+  note: optionalText(300),
+})
+
+export const ASSESSMENT_KINDS = {
+  EXAM: 'Prova',
+  ASSIGNMENT: 'Trabalho',
+  ACTIVITY: 'Atividade',
+  PROJECT: 'Projeto',
+  RECOVERY: 'Recuperação',
+} as const
+
+const decimal = (label: string, min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .transform((v) => Number(v.replace(',', '.')))
+    .refine((v) => Number.isFinite(v) && v >= min && v <= max, `${label} deve estar entre ${min} e ${max}`)
+
+export const assessmentInput = z.object({
+  classSubjectId: id,
+  kind: z.enum(Object.keys(ASSESSMENT_KINDS) as [keyof typeof ASSESSMENT_KINDS], 'Tipo inválido'),
+  title: z.string().trim().min(2, 'Informe o título').max(120),
+  term: z.coerce.number().int().min(1, 'Bimestre inválido').max(4, 'Bimestre inválido'),
+  heldOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe a data'),
+  weight: decimal('Peso', 0.1, 10),
+  maxScore: decimal('Nota máxima', 1, 100),
+  notes: optionalText(500),
+})
+
+export const passingGradeInput = z.object({ passingGrade: decimal('Média', 0, 10) })
+
+/** Converte o texto digitado ("7,5", "8") em nota. `undefined` = inválida, `null` = em branco. */
+export function parseScore(raw: string, maxScore: number): number | null | undefined {
+  const v = raw.trim().replace(',', '.')
+  if (v === '') return null
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0 || n > maxScore) return undefined
+  return Math.round(n * 100) / 100
+}
 
 export const DOCUMENT_KINDS = {
   BIRTH_CERTIFICATE: 'Certidão de nascimento',

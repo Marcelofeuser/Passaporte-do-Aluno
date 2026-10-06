@@ -27,6 +27,7 @@ import {
   DOCUMENT_KINDS,
   documentInput,
   enrollmentInput,
+  enrollmentStatusInput,
   formText,
   parentInput,
   studentInput,
@@ -137,7 +138,7 @@ export async function archiveStudent(formData: FormData) {
     if (updated.length === 0) return
     await db
       .update(enrollment)
-      .set({ status: 'INACTIVE', updatedAt: new Date() })
+      .set({ status: 'CANCELLED', statusChangedOn: today(), statusNote: 'Aluno arquivado', updatedAt: new Date() })
       .where(and(eq(enrollment.studentId, studentId), eq(enrollment.schoolId, schoolId), eq(enrollment.status, 'ACTIVE')))
     await recordAudit({ action: 'student.archived', entityType: 'student', entityId: studentId, schoolId, actorUserId: userId })
     done = true
@@ -208,12 +209,43 @@ export async function unlinkParent(formData: FormData) {
 
 /* ---------- Matrícula ---------- */
 
+const today = () => new Date().toISOString().slice(0, 10)
+
+/** Encerra uma matrícula ativa como transferida (saiu da escola), concluída ou cancelada. */
+export async function changeEnrollmentStatus(_: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction('enrollment.status_failed', async () => {
+    const { schoolId, userId } = await requireSchoolAction(MANAGE)
+    const parsed = enrollmentStatusInput.safeParse(formText(formData))
+    if (!parsed.success) return { ok: false, fieldErrors: toFieldErrors(parsed.error) }
+    const { enrollmentId, status, changedOn, note } = parsed.data
+
+    const [row] = await db
+      .update(enrollment)
+      .set({ status, statusChangedOn: changedOn ?? today(), statusNote: note ?? null, updatedAt: new Date() })
+      .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.schoolId, schoolId), eq(enrollment.status, 'ACTIVE')))
+      .returning({ studentId: enrollment.studentId, classId: enrollment.classId })
+    if (!row) return { ok: false, message: 'Matrícula ativa não encontrada.' }
+
+    await recordAudit({
+      action: 'enrollment.status_changed',
+      entityType: 'student',
+      entityId: row.studentId,
+      schoolId,
+      actorUserId: userId,
+      metadata: { enrollmentId, from: 'ACTIVE', to: status, note: note ?? null },
+    })
+    revalidatePath(`/school/students/${row.studentId}`)
+    if (row.classId) revalidatePath(`/school/classes/${row.classId}`)
+    return { ok: true, message: 'Situação da matrícula atualizada.' }
+  })
+}
+
 export async function enrollStudent(_: ActionState, formData: FormData): Promise<ActionState> {
   return runAction('enrollment.create_failed', async () => {
     const { schoolId, userId } = await requireSchoolAction(MANAGE)
     const parsed = enrollmentInput.safeParse(formText(formData))
     if (!parsed.success) return { ok: false, fieldErrors: toFieldErrors(parsed.error) }
-    const { studentId, classId } = parsed.data
+    const { studentId, classId, enrolledOn } = parsed.data
     if (!(await assertStudent(schoolId, studentId))) return { ok: false, message: 'Aluno não encontrado.' }
 
     const [cls] = await db
@@ -257,6 +289,7 @@ export async function enrollStudent(_: ActionState, formData: FormData): Promise
         academicYearId: cls.academicYearId,
         classId,
         grade: cls.grade,
+        ...(enrolledOn ? { enrolledOn } : {}),
       })
     }
 
@@ -283,17 +316,17 @@ export async function endEnrollment(formData: FormData) {
     if (!UUID_RE.test(enrollmentId)) return
     const [row] = await db
       .update(enrollment)
-      .set({ status: 'INACTIVE', updatedAt: new Date() })
-      .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.schoolId, schoolId)))
+      .set({ status: 'CANCELLED', statusChangedOn: today(), statusNote: 'Retirado da turma', updatedAt: new Date() })
+      .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.schoolId, schoolId), eq(enrollment.status, 'ACTIVE')))
       .returning({ studentId: enrollment.studentId })
     if (!row) return
     await recordAudit({
-      action: 'enrollment.ended',
+      action: 'enrollment.status_changed',
       entityType: 'student',
       entityId: row.studentId,
       schoolId,
       actorUserId: userId,
-      metadata: { enrollmentId },
+      metadata: { enrollmentId, from: 'ACTIVE', to: 'CANCELLED' },
     })
   })
   revalidatePath(returnTo.startsWith('/school/') ? returnTo : '/school/students')

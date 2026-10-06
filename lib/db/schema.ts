@@ -3,6 +3,7 @@ import {
   date,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -90,6 +91,7 @@ export const school = pgTable('school', {
   website: text('website'),
   ...address(),
   logoPathname: text('logo_pathname'),
+  passingGrade: numeric('passing_grade', { precision: 4, scale: 2, mode: 'number' }).notNull().default(6),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -203,6 +205,7 @@ export const classSubject = pgTable('class_subject', {
   classId: uuid('class_id').notNull(),
   subjectId: uuid('subject_id').notNull(),
   teacherId: uuid('teacher_id'),
+  workloadHours: integer('workload_hours'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
@@ -240,8 +243,56 @@ export const enrollment = pgTable('enrollment', {
   grade: text('grade').notNull(),
   status: text('status').notNull().default('ACTIVE'),
   enrolledOn: date('enrolled_on').notNull().defaultNow(),
+  statusChangedOn: date('status_changed_on'),
+  statusNote: text('status_note'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+const score = (name: string) => numeric(name, { precision: 5, scale: 2, mode: 'number' })
+
+export const assessment = pgTable('assessment', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  classSubjectId: uuid('class_subject_id').notNull(),
+  classId: uuid('class_id').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  teacherId: uuid('teacher_id'),
+  kind: text('kind').notNull(),
+  title: text('title').notNull(),
+  term: integer('term').notNull().default(1),
+  heldOn: date('held_on').notNull(),
+  weight: score('weight').notNull().default(1),
+  maxScore: score('max_score').notNull().default(10),
+  notes: text('notes'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const assessmentScore = pgTable('assessment_score', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  assessmentId: uuid('assessment_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  enrollmentId: uuid('enrollment_id').notNull(),
+  score: score('score'),
+  note: text('note'),
+  updatedBy: text('updated_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+export const scoreChange = pgTable('score_change', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  scoreId: uuid('score_id').notNull(),
+  oldScore: score('old_score'),
+  newScore: score('new_score'),
+  reason: text('reason').notNull(),
+  changedBy: text('changed_by').notNull(),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
 export const auditLog = pgTable('audit_log', {

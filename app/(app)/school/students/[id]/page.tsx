@@ -5,7 +5,7 @@ import {
   addParent,
   archiveStudent,
   deleteStudentDocument,
-  endEnrollment,
+  changeEnrollmentStatus,
   enrollStudent,
   unlinkParent,
   updateStudent,
@@ -26,11 +26,9 @@ import {
   listClasses,
 } from '@/lib/school-queries'
 import { fileUrl } from '@/lib/storage'
-import { DOCUMENT_KINDS, RELATIONSHIPS, SEX_OPTIONS, SHIFTS } from '@/lib/validation'
+import { DOCUMENT_KINDS, ENROLLMENT_STATUS, RELATIONSHIPS, SEX_OPTIONS, SHIFTS } from '@/lib/validation'
 
 export const metadata: Metadata = { title: 'Ficha do aluno' }
-
-const STATUS_LABEL: Record<string, string> = { ACTIVE: 'Ativa', INACTIVE: 'Encerrada', TRANSFERRED: 'Transferida' }
 
 export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -83,26 +81,47 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         ) : (
           <ul className="divide-y divide-border">
             {enrollments.map((e) => (
-              <li key={e.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="flex flex-1 flex-col">
-                  <span className="font-semibold">
-                    {e.year} · {e.className ?? e.grade}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {STATUS_LABEL[e.status] ?? e.status} · desde {formatDate(e.enrolledOn)}
-                  </span>
+              <li key={e.id} className="flex flex-col gap-3 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-1 flex-col">
+                    <span className="font-semibold">
+                      {e.year} · {e.className ?? e.grade}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {ENROLLMENT_STATUS[e.status as keyof typeof ENROLLMENT_STATUS] ?? e.status} · entrada em{' '}
+                      {formatDate(e.enrolledOn)}
+                      {e.status !== 'ACTIVE' && e.statusChangedOn ? ` · saída em ${formatDate(e.statusChangedOn)}` : ''}
+                      {e.statusNote ? ` · ${e.statusNote}` : ''}
+                    </span>
+                  </div>
+                  {e.classId ? (
+                    <Link href={`/school/classes/${e.classId}`} className="text-sm font-semibold text-primary hover:underline">
+                      Ver turma
+                    </Link>
+                  ) : null}
                 </div>
-                {e.classId ? (
-                  <Link href={`/school/classes/${e.classId}`} className="text-sm font-semibold text-primary hover:underline">
-                    Ver turma
-                  </Link>
-                ) : null}
                 {canManage && e.status === 'ACTIVE' ? (
-                  <form action={endEnrollment}>
-                    <input type="hidden" name="enrollmentId" value={e.id} />
-                    <input type="hidden" name="returnTo" value={`/school/students/${id}`} />
-                    <ConfirmSubmit confirm="Encerrar esta matrícula?">Encerrar</ConfirmSubmit>
-                  </form>
+                  <details className="rounded-lg border border-border">
+                    <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Alterar situação</summary>
+                    <ActionForm action={changeEnrollmentStatus} submitLabel="Registrar situação" className="border-t border-border p-3">
+                      <input type="hidden" name="enrollmentId" value={e.id} />
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <Field label="Situação" htmlFor={`st-${e.id}`}>
+                          <Select id={`st-${e.id}`} name="status" required defaultValue="TRANSFERRED">
+                            <option value="TRANSFERRED">Transferida (saiu da escola)</option>
+                            <option value="COMPLETED">Concluída</option>
+                            <option value="CANCELLED">Cancelada</option>
+                          </Select>
+                        </Field>
+                        <Field label="Data" htmlFor={`sd-${e.id}`}>
+                          <Input id={`sd-${e.id}`} name="changedOn" type="date" />
+                        </Field>
+                        <Field label="Observação" htmlFor={`sn-${e.id}`}>
+                          <Input id={`sn-${e.id}`} name="note" maxLength={300} />
+                        </Field>
+                      </div>
+                    </ActionForm>
+                  </details>
                 ) : null}
               </li>
             ))}
