@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, Building2, HeartHandshake, Home, School, ScrollText, UserRound, Users } from 'lucide-react'
+import { Bell, Building2, HeartHandshake, Home, School, ScrollText, UserRound, Users, WalletCards } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/lib/navigation'
 
@@ -15,6 +15,7 @@ const ICONS = {
   bell: Bell,
   user: UserRound,
   family: HeartHandshake,
+  finance: WalletCards,
 }
 
 function isActive(pathname: string, href: string) {

@@ -3,7 +3,7 @@ import { can, type Permission, type Role } from '@/lib/rbac'
 export type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'schools' | 'school' | 'users' | 'audit' | 'bell' | 'user' | 'family'
+  icon: 'home' | 'schools' | 'school' | 'users' | 'audit' | 'bell' | 'user' | 'family' | 'finance'
 }
 
 export function navFor(role: Role | null | undefined, superAdmin: boolean): NavItem[] {
@@ -12,8 +12,10 @@ export function navFor(role: Role | null | undefined, superAdmin: boolean): NavI
   if (role !== 'SUPER_ADMIN' && (can(role, 'school:view_academic') || can(role, 'school:view_users'))) {
     items.push({ href: '/school', label: 'Escola', icon: 'school' })
   }
+  if (can(role, 'school:manage_finance')) items.push({ href: '/school/finance', label: 'Financeiro', icon: 'finance' })
   if (can(role, 'family:view')) {
     items.push({ href: '/family', label: role === 'STUDENT' ? 'Meu boletim' : 'Meus filhos', icon: 'family' })
+    items.push({ href: '/family/finance', label: 'Financeiro', icon: 'finance' })
   }
   if (superAdmin || can(role, 'school:view_audit')) {
     items.push({ href: '/audit', label: 'Auditoria', icon: 'audit' })
@@ -46,4 +48,5 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/years', label: 'Anos letivos', description: 'Calendário e ano letivo vigente', permission: 'school:view_academic' },
   { href: '/school/users', label: 'Usuários', description: 'Contas de acesso e perfis', permission: 'school:view_users' },
   { href: '/school/settings', label: 'Dados da escola', description: 'Identificação, endereço e logotipo', permission: 'school:manage_settings' },
+  { href: '/school/finance', label: 'Gestão financeira', description: 'Planos, cobranças, faturas e recebimentos', permission: 'school:manage_finance' },
 ]

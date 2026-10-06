@@ -75,6 +75,14 @@ const optionalId = z
   .pipe(z.uuid().nullable())
   .optional()
 
+export const financeCategoryInput = z.object({ name: z.string().trim().min(2).max(100), description: optionalText(300) })
+export const financeChargeTypeInput = z.object({ name: z.string().trim().min(2).max(100), categoryId: optionalId, description: optionalText(300), defaultAmount: z.coerce.number().finite().min(0).max(99999999) })
+export const paymentPlanInput = z.object({ name: z.string().trim().min(2).max(100), description: optionalText(300), installments: z.coerce.number().int().min(1).max(60), dueDay: z.coerce.number().int().min(1).max(28) })
+export const studentPaymentPlanInput = z.object({ studentId: id, planId: id, startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+export const invoiceInput = z.object({ studentId: id, reference: z.string().trim().min(1).max(120), dueOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), amount: z.coerce.number().finite().positive().max(99999999), description: z.string().trim().min(2).max(300) })
+export const settlementInput = z.object({ invoiceId: id, amount: z.coerce.number().finite().positive(), paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), method: z.enum(['CASH', 'PIX', 'CARD', 'TRANSFER', 'OTHER']), justification: optionalText(1000) }).superRefine((v, ctx) => { if (v.paidOn < new Date().toISOString().slice(0, 10) && !v.justification) ctx.addIssue({ code: 'custom', path: ['justification'], message: 'Justificativa obrigatória para baixa retroativa.' }) })
+export const financeJustificationInput = z.object({ invoiceId: id, justification: z.string().trim().min(5).max(1000) })
+
 export const addressInput = z.object({
   addressZip: digits(8, 'CEP'),
   addressStreet: optionalText(160),

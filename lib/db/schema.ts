@@ -472,3 +472,105 @@ export const notification = pgTable('notification', {
   readAt: timestamp('read_at', tz),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
+
+/* ---------- Gestão financeira escolar (isolada por escola) ---------- */
+export const financeCategory = pgTable('finance_category', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+}, (t) => [uniqueIndex('finance_category_school_name_uq').on(t.schoolId, t.name)])
+
+export const financeChargeType = pgTable('finance_charge_type', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  categoryId: uuid('category_id').references(() => financeCategory.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  defaultAmount: numeric('default_amount', { precision: 12, scale: 2, mode: 'number' }).notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+}, (t) => [uniqueIndex('finance_charge_type_school_name_uq').on(t.schoolId, t.name)])
+
+export const paymentPlan = pgTable('payment_plan', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  installments: integer('installments').notNull().default(1),
+  dueDay: integer('due_day').notNull().default(10),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+}, (t) => [index('payment_plan_school_idx').on(t.schoolId)])
+
+export const studentPaymentPlan = pgTable('student_payment_plan', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  studentId: uuid('student_id').notNull().references(() => student.id, { onDelete: 'cascade' }),
+  planId: uuid('plan_id').notNull().references(() => paymentPlan.id, { onDelete: 'restrict' }),
+  startsOn: date('starts_on').notNull(),
+  endsOn: date('ends_on'),
+  status: text('status').notNull().default('ACTIVE'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+}, (t) => [index('student_payment_plan_school_student_idx').on(t.schoolId, t.studentId)])
+
+export const financeInvoice = pgTable('finance_invoice', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  studentId: uuid('student_id').notNull().references(() => student.id, { onDelete: 'restrict' }),
+  planAssignmentId: uuid('plan_assignment_id').references(() => studentPaymentPlan.id, { onDelete: 'set null' }),
+  reference: text('reference').notNull(),
+  dueOn: date('due_on').notNull(),
+  totalAmount: numeric('total_amount', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+  status: text('status').notNull().default('OPEN'),
+  description: text('description'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  cancelledAt: timestamp('cancelled_at', tz),
+}, (t) => [index('finance_invoice_school_student_idx').on(t.schoolId, t.studentId), index('finance_invoice_school_status_idx').on(t.schoolId, t.status)])
+
+export const financeCharge = pgTable('finance_charge', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  invoiceId: uuid('invoice_id').notNull().references(() => financeInvoice.id, { onDelete: 'cascade' }),
+  chargeTypeId: uuid('charge_type_id').references(() => financeChargeType.id, { onDelete: 'set null' }),
+  description: text('description').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+
+export const paymentSettlement = pgTable('payment_settlement', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  invoiceId: uuid('invoice_id').notNull().references(() => financeInvoice.id, { onDelete: 'restrict' }),
+  amount: numeric('amount', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+  paidOn: date('paid_on').notNull(),
+  method: text('method').notNull(),
+  retroactiveJustification: text('retroactive_justification'),
+  cancelledAt: timestamp('cancelled_at', tz),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+}, (t) => [index('payment_settlement_school_invoice_idx').on(t.schoolId, t.invoiceId)])
+
+export const financeAudit = pgTable('finance_audit', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  entityType: text('entity_type').notNull(),
+  entityId: uuid('entity_id'),
+  action: text('action').notNull(),
+  justification: text('justification'),
+  beforeData: jsonb('before_data').$type<Record<string, unknown>>(),
+  afterData: jsonb('after_data').$type<Record<string, unknown>>(),
+  actorUserId: text('actor_user_id'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+}, (t) => [index('finance_audit_school_entity_idx').on(t.schoolId, t.entityType, t.entityId)])

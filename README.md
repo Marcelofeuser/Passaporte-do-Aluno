@@ -89,3 +89,7 @@ export default defineConfig([
 - **Alertas**:
   - Ocorrências `FAMILY` geram aviso para responsáveis vinculados.
   - Ao atingir limite crítico no bimestre corrente (fallback calendário bimestral), coordenação/admin recebe alerta interno.
+
+## Fase 6 — Gestão Financeira Escolar
+
+A migração `migrations/0006_finance.sql` cria categorias e tipos de cobrança, planos, atribuições, faturas, lançamentos, baixas e auditoria. Execute-a no Neon/Postgres após as migrações anteriores. Todas as tabelas possuem `school_id`; ações escolares filtram o tenant e o portal/API da família filtram apenas alunos vinculados ao usuário autenticado. A baixa com data retroativa e cancelamentos exigem justificativa e ficam auditados.
