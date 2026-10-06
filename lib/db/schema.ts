@@ -127,6 +127,74 @@ export const academicYear = pgTable('academic_year', {
   deletedAt: timestamp('deleted_at', tz),
 })
 
+/* ---------- Calendário e atendimentos ---------- */
+
+export const calendarEventType = pgTable('calendar_event_type', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  name: text('name').notNull(),
+  color: text('color').notNull().default('BLUE'),
+  audience: text('audience').notNull().default('ALL'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const calendarEvent = pgTable('calendar_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  typeId: uuid('type_id').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  startsAt: timestamp('starts_at', tz).notNull(),
+  endsAt: timestamp('ends_at', tz),
+  location: text('location'),
+  isSchoolDay: boolean('is_school_day').notNull().default(true),
+  alertSentAt: timestamp('alert_sent_at', tz),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const schoolDay = pgTable('school_day', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  day: date('day').notNull(),
+  isSchoolDay: boolean('is_school_day').notNull(),
+  reason: text('reason'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+export const appointmentSlot = pgTable('appointment_slot', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  teacherId: uuid('teacher_id'),
+  startsAt: timestamp('starts_at', tz).notNull(),
+  endsAt: timestamp('ends_at', tz).notNull(),
+  capacity: integer('capacity').notNull().default(1),
+  location: text('location'),
+  notes: text('notes'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const appointment = pgTable('appointment', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  slotId: uuid('slot_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  bookedBy: text('booked_by').notNull(),
+  status: text('status').notNull().default('BOOKED'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
 export const student = pgTable('student', {
   id: uuid('id').primaryKey().defaultRandom(),
   schoolId: uuid('school_id').notNull(),

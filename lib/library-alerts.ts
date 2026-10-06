@@ -45,7 +45,12 @@ async function getTeacherUsers(schoolId: string, teacherIds: string[]) {
     .innerJoin(user, or(eq(user.id, teacher.userId), sql`lower(${user.email}) = lower(${teacher.email})`))
     .innerJoin(
       schoolMembership,
-      and(eq(schoolMembership.userId, user.id), eq(schoolMembership.schoolId, schoolId), isNull(schoolMembership.deletedAt)),
+      and(
+        eq(schoolMembership.userId, user.id),
+        eq(schoolMembership.schoolId, schoolId),
+        eq(schoolMembership.role, 'TEACHER'),
+        isNull(schoolMembership.deletedAt),
+      ),
     )
     .where(and(eq(teacher.schoolId, schoolId), isNull(teacher.deletedAt), inArray(teacher.id, teacherIds)))
   const out = new Map<string, string[]>()
@@ -148,7 +153,18 @@ export async function dispatchLibraryAlerts(schoolId: string, today = todayISO()
     }
     return userIds.map((userId) => ({ userId, schoolId, title, body, href }))
   })
-  if (rows.length) await db.insert(notification).values(rows)
+  try {
+    if (rows.length) await db.insert(notification).values(rows)
+  } catch (error) {
+    const claimed = [...claimedDue, ...claimedOverdue]
+    if (claimed.length) {
+      await db
+        .update(bookLoan)
+        .set({ dueAlertSentAt: null, overdueAlertSentAt: null })
+        .where(and(eq(bookLoan.schoolId, schoolId), inArray(bookLoan.id, claimed)))
+    }
+    throw error
+  }
   logger.info('library.alerts_dispatched', { schoolId, dueSoon: dueSoon.length, overdue: overdue.length, notifications: rows.length })
   return rows.length
 }

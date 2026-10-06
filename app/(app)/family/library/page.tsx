@@ -45,7 +45,7 @@ export default async function FamilyLibraryPage({ searchParams }: { searchParams
   const yearFrom = enr?.startsOn ?? `${today.slice(0, 4)}-01-01`
   const [current, closed] = await Promise.all([
     listLoans(schoolId, { studentIds: [selected.id], filter: 'active', today }),
-    listLoans(schoolId, { studentIds: [selected.id], filter: 'closed', from: yearFrom, today, limit: 200 }),
+    listLoans(schoolId, { studentIds: [selected.id], filter: 'closed', today, limit: 2000 }),
   ])
   const history = closed.filter((l) => l.status !== 'CANCELLED')
   const pendingFines = closed.filter((l) => l.fineStatus === 'PENDING')

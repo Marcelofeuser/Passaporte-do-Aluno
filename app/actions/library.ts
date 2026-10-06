@@ -39,6 +39,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /** Exemplar mudou de situação entre a leitura e a gravação (corrida entre operadores). */
 class ConflictError extends Error {}
+class BorrowerLimitError extends Error {}
 
 function text(formData: FormData, key: string, max: number) {
   return String(formData.get(key) ?? '').trim().slice(0, max)
@@ -170,20 +171,28 @@ export async function archiveBook(_: ActionState, formData: FormData): Promise<A
     const current = await getBook(schoolId, bookId)
     if (!current) return { ok: false, message: 'Título não encontrado.' }
 
-    const [loaned] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(bookLoan)
-      .where(and(eq(bookLoan.schoolId, schoolId), eq(bookLoan.bookId, bookId), eq(bookLoan.status, 'ACTIVE')))
-    if (loaned.n > 0) return { ok: false, message: `Há ${loaned.n} exemplar(es) emprestado(s). Registre a devolução antes da baixa.` }
-
     const now = new Date()
-    await db.transaction(async (tx) => {
-      await tx.update(book).set({ deletedAt: now, updatedAt: now }).where(and(eq(book.id, bookId), eq(book.schoolId, schoolId)))
+    const archivedOk = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(book)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(book.id, bookId),
+            eq(book.schoolId, schoolId),
+            isNull(book.deletedAt),
+            sql`not exists (select 1 from book_loan where book_loan.book_id = ${book.id} and book_loan.school_id = ${schoolId} and book_loan.status = 'ACTIVE')`,
+          ),
+        )
+        .returning({ id: book.id })
+      if (!updated) return false
       await tx
         .update(bookCopy)
         .set({ status: 'WITHDRAWN', deletedAt: now, updatedAt: now })
         .where(and(eq(bookCopy.bookId, bookId), eq(bookCopy.schoolId, schoolId), isNull(bookCopy.deletedAt)))
+      return true
     })
+    if (!archivedOk) return { ok: false, message: 'Há exemplar(es) emprestado(s) ou o título já foi alterado. Registre a devolução antes da baixa.' }
     await recordAudit({
       action: 'library.book_archived',
       entityType: 'book',
@@ -264,7 +273,7 @@ export async function updateCopy(_: ActionState, formData: FormData): Promise<Ac
     const [updated] = await db
       .update(bookCopy)
       .set({ condition, status, notes, updatedAt: new Date() })
-      .where(and(eq(bookCopy.id, copyId), eq(bookCopy.schoolId, schoolId), eq(bookCopy.status, copy.status)))
+      .where(and(eq(bookCopy.id, copyId), eq(bookCopy.schoolId, schoolId), eq(bookCopy.status, copy.status), isNull(bookCopy.deletedAt)))
       .returning({ id: bookCopy.id })
     if (!updated) return { ok: false, message: 'O exemplar foi alterado por outra pessoa. Recarregue a página.' }
 
@@ -347,6 +356,24 @@ export async function createLoan(_: ActionState, formData: FormData): Promise<Ac
     let loanId: string
     try {
       loanId = await db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${schoolId}:${borrower!.type}:${person.id}`}, 0))`)
+        const [lockedStanding] = await tx
+          .select({
+            active: sql<number>`count(*) filter (where ${bookLoan.status} = 'ACTIVE')::int`,
+            overdue: sql<number>`count(*) filter (where ${bookLoan.status} = 'ACTIVE' and ${bookLoan.dueOn} < ${today})::int`,
+            pendingFines: sql<number>`count(*) filter (where ${bookLoan.fineStatus} = 'PENDING')::int`,
+          })
+          .from(bookLoan)
+          .where(
+            and(
+              eq(bookLoan.schoolId, schoolId),
+              borrower!.type === 'STUDENT' ? eq(bookLoan.studentId, person.id) : eq(bookLoan.teacherId, person.id),
+            ),
+          )
+        if ((lockedStanding?.active ?? 0) >= rules.maxLoans) throw new BorrowerLimitError()
+        if (rules.blockOverdue && ((lockedStanding?.overdue ?? 0) > 0 || (lockedStanding?.pendingFines ?? 0) > 0)) {
+          throw new BorrowerLimitError()
+        }
         const claimed = await tx
           .update(bookCopy)
           .set({ status: 'LOANED', updatedAt: new Date() })
@@ -381,6 +408,7 @@ export async function createLoan(_: ActionState, formData: FormData): Promise<Ac
       })
     } catch (error) {
       if (error instanceof ConflictError) return { ok: false, message: 'Este exemplar acabou de ser emprestado. Escolha outro.' }
+      if (error instanceof BorrowerLimitError) return { ok: false, message: `${person.name} atingiu o limite ou possui pendência que bloqueia novos empréstimos.` }
       throw error
     }
 
