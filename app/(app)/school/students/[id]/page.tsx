@@ -54,7 +54,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     getStudentDocuments(schoolId, id),
     currentYear ? listClasses(schoolId, currentYear.id) : Promise.resolve([]),
     getStudentBehaviorSummary(schoolId, id),
-    listStudentOccurrences(schoolId, id, 25),
+    listStudentOccurrences(schoolId, id, { limit: 25 }),
   ])
   const active = enrollments.find((e) => e.status === 'ACTIVE')
   const displayName = s.socialName ?? s.fullName
@@ -112,7 +112,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                 <p className="text-sm text-muted-foreground">
                   {formatDate(o.occurredAt)} · {OCCURRENCE_SEVERITY[o.severity as keyof typeof OCCURRENCE_SEVERITY]} ·{' '}
                   {OCCURRENCE_STATUS[o.status as keyof typeof OCCURRENCE_STATUS]} ·{' '}
-                  {OCCURRENCE_VISIBILITY[o.visibility as keyof typeof OCCURRENCE_VISIBILITY]}
+                  {o.visibleToFamily ? OCCURRENCE_VISIBILITY.FAMILY : OCCURRENCE_VISIBILITY.INTERNAL}
                 </p>
                 <p className="mt-1 text-sm">{o.description}</p>
               </li>

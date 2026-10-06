@@ -1,6 +1,5 @@
 import {
   boolean,
-  check,
   date,
   index,
   integer,
@@ -13,7 +12,6 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
 
 const tz = { withTimezone: true } as const
 
@@ -98,13 +96,13 @@ export const school = pgTable('school', {
   passingGrade: numeric('passing_grade', { precision: 4, scale: 2, mode: 'number' }).notNull().default(6),
   minAttendance: integer('min_attendance').notNull().default(75),
   lateAlertThreshold: integer('late_alert_threshold').notNull().default(3),
-  occurrenceAlertThreshold: integer('occurrence_alert_threshold').notNull().default(3),
   libraryLoanDays: integer('library_loan_days').notNull().default(14),
   libraryMaxRenewals: integer('library_max_renewals').notNull().default(2),
   libraryMaxLoans: integer('library_max_loans').notNull().default(3),
   libraryFinePerDay: numeric('library_fine_per_day', { precision: 8, scale: 2, mode: 'number' }).notNull().default(0),
   libraryBlockOverdue: boolean('library_block_overdue').notNull().default(true),
   libraryDueAlertDays: integer('library_due_alert_days').notNull().default(2),
+  occurrenceAlertThreshold: integer('occurrence_alert_threshold').notNull().default(3),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -415,113 +413,6 @@ export const attendanceChange = pgTable('attendance_change', {
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
-export const occurrenceType = pgTable(
-  'occurrence_type',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    schoolId: uuid('school_id')
-      .notNull()
-      .references(() => school.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    description: text('description'),
-    active: boolean('active').notNull().default(true),
-    sortOrder: integer('sort_order').notNull().default(0),
-    createdBy: text('created_by'),
-    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', tz),
-  },
-  (t) => [
-    uniqueIndex('occurrence_type_school_name_uq').on(t.schoolId, t.name),
-    index('occurrence_type_school_active_idx').on(t.schoolId, t.active),
-  ],
-)
-
-export const occurrence = pgTable(
-  'occurrence',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    schoolId: uuid('school_id')
-      .notNull()
-      .references(() => school.id, { onDelete: 'cascade' }),
-    studentId: uuid('student_id')
-      .notNull()
-      .references(() => student.id, { onDelete: 'restrict' }),
-    classId: uuid('class_id').references(() => schoolClass.id, { onDelete: 'set null' }),
-    reporterUserId: text('reporter_user_id'),
-    occurrenceTypeId: uuid('occurrence_type_id')
-      .notNull()
-      .references(() => occurrenceType.id, { onDelete: 'restrict' }),
-    occurredAt: timestamp('occurred_at', tz).notNull().defaultNow(),
-    severity: text('severity').notNull().default('LEVE'),
-    visibility: text('visibility').notNull().default('INTERNAL'),
-    status: text('status').notNull().default('PENDENTE'),
-    description: text('description').notNull(),
-    archivedAt: timestamp('archived_at', tz),
-    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', tz),
-  },
-  (t) => [
-    index('occurrence_school_student_idx').on(t.schoolId, t.studentId),
-    index('occurrence_school_occurred_idx').on(t.schoolId, t.occurredAt),
-    index('occurrence_school_status_idx').on(t.schoolId, t.status),
-    check(
-      'occurrence_severity_check',
-      sql`${t.severity} in ('LEVE', 'MODERADA', 'GRAVE')`,
-    ),
-    check(
-      'occurrence_visibility_check',
-      sql`${t.visibility} in ('INTERNAL', 'FAMILY')`,
-    ),
-    check(
-      'occurrence_status_check',
-      sql`${t.status} in ('PENDENTE', 'EM_ACOMPANHAMENTO', 'RESOLVIDA')`,
-    ),
-  ],
-)
-
-export const occurrenceAction = pgTable(
-  'occurrence_action',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    schoolId: uuid('school_id')
-      .notNull()
-      .references(() => school.id, { onDelete: 'cascade' }),
-    occurrenceId: uuid('occurrence_id')
-      .notNull()
-      .references(() => occurrence.id, { onDelete: 'cascade' }),
-    actionType: text('action_type').notNull(),
-    description: text('description').notNull(),
-    performedBy: text('performed_by'),
-    performedAt: timestamp('performed_at', tz).notNull().defaultNow(),
-    dueDate: date('due_date'),
-    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
-  },
-  (t) => [index('occurrence_action_occurrence_idx').on(t.schoolId, t.occurrenceId, t.performedAt)],
-)
-
-export const occurrenceAudit = pgTable(
-  'occurrence_audit',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    schoolId: uuid('school_id')
-      .notNull()
-      .references(() => school.id, { onDelete: 'cascade' }),
-    occurrenceId: uuid('occurrence_id')
-      .notNull()
-      .references(() => occurrence.id, { onDelete: 'cascade' }),
-    actorUserId: text('actor_user_id'),
-    action: text('action').notNull(),
-    justification: text('justification').notNull(),
-    beforeData: jsonb('before_data').$type<Record<string, unknown>>(),
-    afterData: jsonb('after_data').$type<Record<string, unknown>>(),
-    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
-    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
-  },
-  (t) => [index('occurrence_audit_occurrence_idx').on(t.schoolId, t.occurrenceId, t.createdAt)],
-)
 /* ---------- Biblioteca ---------- */
 
 export const book = pgTable('book', {
@@ -605,6 +496,69 @@ export const auditLog = pgTable('audit_log', {
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
+export const occurrenceType = pgTable('occurrence_type', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  name: text('name').notNull(),
+  isPositive: boolean('is_positive').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const occurrence = pgTable('occurrence', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  classId: uuid('class_id'),
+  enrollmentId: uuid('enrollment_id'),
+  academicYearId: uuid('academic_year_id'),
+  typeId: uuid('type_id').notNull(),
+  recordedByUserId: text('recorded_by_user_id').notNull(),
+  teacherId: uuid('teacher_id'),
+  occurredOn: date('occurred_on').notNull(),
+  occurredAt: timestamp('occurred_at', tz).notNull(),
+  term: integer('term').notNull().default(1),
+  severity: text('severity').notNull(),
+  description: text('description').notNull(),
+  measures: jsonb('measures').$type<string[]>().notNull().default([]),
+  measuresNote: text('measures_note'),
+  status: text('status').notNull().default('PENDING'),
+  visibleToFamily: boolean('visible_to_family').notNull().default(true),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const occurrenceChange = pgTable('occurrence_change', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  occurrenceId: uuid('occurrence_id').notNull(),
+  action: text('action').notNull(),
+  reason: text('reason').notNull(),
+  changedBy: text('changed_by').notNull(),
+  oldValues: jsonb('old_values').$type<Record<string, unknown>>().notNull().default({}),
+  newValues: jsonb('new_values').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+
+export const occurrenceAlertSent = pgTable(
+  'occurrence_alert_sent',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull(),
+    academicYearId: uuid('academic_year_id').notNull(),
+    term: integer('term').notNull(),
+    kind: text('kind').notNull().default('CRITICAL_COUNT'),
+    countAtSend: integer('count_at_send').notNull(),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('occurrence_alert_sent_uniq').on(t.schoolId, t.studentId, t.academicYearId, t.term, t.kind)],
+)
+
 export const notification = pgTable('notification', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull(),
@@ -613,6 +567,37 @@ export const notification = pgTable('notification', {
   body: text('body'),
   href: text('href'),
   readAt: timestamp('read_at', tz),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+
+export const schoolEnrollment = pgTable('school_enrollments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  academicYearId: uuid('academic_year_id').notNull(),
+  classId: uuid('class_id'),
+  status: text('status').notNull().default('pending'),
+  enrollmentType: text('enrollment_type').notNull().default('new'),
+  contractAccepted: boolean('contract_accepted').notNull().default(false),
+  contractAcceptedAt: timestamp('contract_accepted_at', tz),
+  financialCleared: boolean('financial_cleared').notNull().default(false),
+  documentsCleared: boolean('documents_cleared').notNull().default(false),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+export const academicHistory = pgTable('academic_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  academicYearId: uuid('academic_year_id').notNull(),
+  gradeLevel: text('grade_level').notNull(),
+  result: text('result').notNull(),
+  finalAverage: numeric('final_average', { precision: 5, scale: 2, mode: 'number' }),
+  attendanceRate: numeric('attendance_rate', { precision: 5, scale: 2, mode: 'number' }),
+  institutionName: text('institution_name'),
+  notes: text('notes'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
@@ -658,7 +643,6 @@ export const announcementRead = pgTable('announcement_read', {
   readAt: timestamp('read_at', tz).notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index('announcement_read_school_idx').on(t.schoolId, t.readAt)])
 
-/* ---------- Gestão financeira escolar (isolada por escola) ---------- */
 export const financeCategory = pgTable('finance_category', {
   id: uuid('id').primaryKey().defaultRandom(),
   schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),

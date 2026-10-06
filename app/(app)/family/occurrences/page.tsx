@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
 import { getFamilyStudents } from '@/lib/attendance-queries'
-import { getStudentBehaviorSummary, listOccurrences } from '@/lib/occurrence-queries'
+import { getStudentBehaviorSummary, listStudentOccurrences } from '@/lib/occurrence-queries'
 import { formatDate, requireSchoolPage } from '@/lib/school-page'
 import { OCCURRENCE_SEVERITY, OCCURRENCE_STATUS } from '@/lib/validation'
 
@@ -32,7 +32,7 @@ export default async function FamilyOccurrencesPage({
   const selected = students.find((s) => s.id === sp.student) ?? students[0]
   const [summary, result] = await Promise.all([
     getStudentBehaviorSummary(schoolId, selected.id),
-    listOccurrences(schoolId, { studentId: selected.id, visibility: 'FAMILY', pageSize: 100 }),
+    listStudentOccurrences(schoolId, selected.id, { visibleOnly: true, limit: 100 }),
   ])
 
   return (
@@ -69,11 +69,11 @@ export default async function FamilyOccurrencesPage({
 
       <Card>
         <CardHeader title="Histórico" />
-        {result.items.length === 0 ? (
+        {result.length === 0 ? (
           <EmptyState title="Nenhuma ocorrência visível" description="Quando houver registros compartilhados pela escola, eles aparecerão aqui." />
         ) : (
           <ul className="divide-y divide-border">
-            {result.items.map((o) => (
+            {result.map((o) => (
               <li key={o.id} className="px-4 py-3">
                 <p className="font-semibold">{o.typeName}</p>
                 <p className="text-sm text-muted-foreground">

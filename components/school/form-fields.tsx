@@ -90,10 +90,29 @@ export function FileField({
   )
 }
 
-export function Checkbox({ id, name, label, defaultChecked }: { id: string; name: string; label: string; defaultChecked?: boolean }) {
+export function Checkbox({
+  id,
+  name,
+  label,
+  defaultChecked,
+  value,
+}: {
+  id: string
+  name: string
+  label: string
+  defaultChecked?: boolean
+  value?: string
+}) {
   return (
     <label htmlFor={id} className="flex items-center gap-2 text-sm font-semibold">
-      <input id={id} name={name} type="checkbox" defaultChecked={defaultChecked} className="size-4 accent-primary" />
+      <input
+        id={id}
+        name={name}
+        type="checkbox"
+        value={value}
+        defaultChecked={defaultChecked}
+        className="size-4 accent-primary"
+      />
       {label}
     </label>
   )

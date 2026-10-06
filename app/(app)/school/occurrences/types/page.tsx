@@ -1,109 +1,70 @@
 import type { Metadata } from 'next'
-import { createOccurrenceType, updateOccurrenceThreshold, updateOccurrenceType, archiveOccurrenceType } from '@/app/actions/occurrences'
+import { archiveOccurrenceType, createOccurrenceType, updateOccurrenceType } from '@/app/actions/occurrences'
 import { ActionForm, ConfirmSubmit } from '@/components/school/action-form'
-import { BackLink, Textarea } from '@/components/school/form-fields'
+import { BackLink, Checkbox } from '@/components/school/form-fields'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
 import { Field, Input } from '@/components/ui/field'
 import { listOccurrenceTypes } from '@/lib/occurrence-queries'
 import { requireSchoolPage } from '@/lib/school-page'
-import { getSchoolProfile } from '@/lib/school-queries'
 
 export const metadata: Metadata = { title: 'Tipos de ocorrência' }
 
 export default async function OccurrenceTypesPage() {
-  const { schoolId } = await requireSchoolPage('school:manage_academic')
-  const [types, profile] = await Promise.all([listOccurrenceTypes(schoolId, true), getSchoolProfile(schoolId)])
+  const { schoolId } = await requireSchoolPage('school:manage_all_discipline')
+  const types = await listOccurrenceTypes(schoolId)
 
   return (
     <>
       <BackLink href="/school/occurrences">Ocorrências</BackLink>
-      <PageTitle title="Tipos de ocorrência" description="Categorias configuráveis para o registro disciplinar da escola." />
+      <PageTitle
+        title="Tipos de ocorrência"
+        description="Categorias desta escola. Professor só usa tipos ativos; arquivar não apaga o histórico já registrado."
+      />
 
       <Card>
-        <CardHeader title="Limite crítico" description="Quando o aluno atingir esse número no bimestre atual, a coordenação é notificada." />
-        <ActionForm
-          action={updateOccurrenceThreshold}
-          submitLabel="Salvar limite"
-          resetOnSuccess={false}
-          className="border-t border-border p-4"
-          fieldLabels={{ occurrenceAlertThreshold: 'Limite crítico' }}
-        >
-          <Field label="Limite de ocorrências" htmlFor="occurrenceAlertThreshold">
-            <Input
-              id="occurrenceAlertThreshold"
-              name="occurrenceAlertThreshold"
-              type="number"
-              min={1}
-              max={20}
-              defaultValue={profile?.occurrenceAlertThreshold ?? 3}
-            />
-          </Field>
-        </ActionForm>
-      </Card>
-
-      <Card>
-        <CardHeader title="Cadastrar tipo" />
-        <ActionForm action={createOccurrenceType} submitLabel="Criar tipo" className="p-4" fieldLabels={{ name: 'Nome', sortOrder: 'Ordem' }}>
-          <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
-            <Field label="Nome" htmlFor="name">
-              <Input id="name" name="name" maxLength={80} required />
-            </Field>
-            <Field label="Ordem" htmlFor="sortOrder">
-              <Input id="sortOrder" name="sortOrder" type="number" min={0} max={999} defaultValue={0} />
-            </Field>
-          </div>
-          <Field label="Descrição" htmlFor="description">
-            <Textarea id="description" name="description" maxLength={300} rows={3} />
-          </Field>
-          <label className="inline-flex items-center gap-2 text-sm font-medium">
-            <input type="checkbox" name="active" defaultChecked />
-            Tipo ativo
-          </label>
-        </ActionForm>
-      </Card>
-
-      <Card>
-        <CardHeader title="Tipos cadastrados" />
+        <CardHeader title={`${types.length} tipo(s)`} />
         {types.length === 0 ? (
-          <EmptyState title="Nenhum tipo cadastrado" description="Cadastre categorias para facilitar o registro das ocorrências." />
+          <EmptyState title="Nenhum tipo" description="Crie as categorias usadas pela escola." />
         ) : (
           <ul className="divide-y divide-border">
-            {types.map((type) => (
-              <li key={type.id} className="px-4 py-3">
+            {types.map((t) => (
+              <li key={t.id} className="flex flex-col gap-3 px-4 py-3">
                 <ActionForm
                   action={updateOccurrenceType}
                   submitLabel="Salvar"
                   resetOnSuccess={false}
                   className="gap-3"
-                  fieldLabels={{ name: 'Nome', sortOrder: 'Ordem' }}
+                  fieldLabels={{ name: 'Nome' }}
                 >
-                  <input type="hidden" name="typeId" value={type.id} />
-                  <div className="grid gap-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
-                    <Field label="Nome" htmlFor={`name-${type.id}`}>
-                      <Input id={`name-${type.id}`} name="name" maxLength={80} required defaultValue={type.name} />
-                    </Field>
-                    <Field label="Ordem" htmlFor={`sort-${type.id}`}>
-                      <Input id={`sort-${type.id}`} name="sortOrder" type="number" min={0} max={999} defaultValue={type.sortOrder} />
-                    </Field>
-                    <label className="inline-flex min-h-11 items-center gap-2 text-sm font-medium">
-                      <input type="checkbox" name="active" defaultChecked={type.active} />
-                      Ativo
-                    </label>
+                  <input type="hidden" name="typeId" value={t.id} />
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="flex-1">
+                      <Field label="Nome" htmlFor={`name-${t.id}`}>
+                        <Input id={`name-${t.id}`} name="name" required maxLength={80} defaultValue={t.name} />
+                      </Field>
+                    </div>
+                    <Checkbox id={`pos-${t.id}`} name="isPositive" label="Mérito / positiva" defaultChecked={t.isPositive} />
+                    <Checkbox id={`act-${t.id}`} name="isActive" label="Ativo" defaultChecked={t.isActive} />
                   </div>
-                  <Field label="Descrição" htmlFor={`desc-${type.id}`}>
-                    <Textarea id={`desc-${type.id}`} name="description" maxLength={300} rows={2} defaultValue={type.description ?? ''} />
-                  </Field>
                 </ActionForm>
-                {!type.deletedAt ? (
-                  <form action={archiveOccurrenceType} className="mt-2 flex justify-end">
-                    <input type="hidden" name="typeId" value={type.id} />
-                    <ConfirmSubmit confirm="Arquivar este tipo?">Arquivar tipo</ConfirmSubmit>
-                  </form>
-                ) : null}
+                <form action={archiveOccurrenceType}>
+                  <input type="hidden" name="typeId" value={t.id} />
+                  <ConfirmSubmit confirm={`Arquivar “${t.name}”?`}>Arquivar</ConfirmSubmit>
+                </form>
               </li>
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card>
+        <CardHeader title="Novo tipo" />
+        <ActionForm action={createOccurrenceType} submitLabel="Criar tipo" className="p-4" fieldLabels={{ name: 'Nome' }}>
+          <Field label="Nome" htmlFor="new-type">
+            <Input id="new-type" name="name" required maxLength={80} placeholder="Ex.: Advertência escrita" />
+          </Field>
+          <Checkbox id="new-positive" name="isPositive" label="Ocorrência positiva / mérito" />
+        </ActionForm>
       </Card>
     </>
   )
