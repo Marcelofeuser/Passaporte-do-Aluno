@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, Building2, Home, ScrollText, UserRound, Users } from 'lucide-react'
+import { Bell, Building2, Home, School, ScrollText, UserRound, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/lib/navigation'
 
 const ICONS = {
   home: Home,
   schools: Building2,
+  school: School,
   users: Users,
   audit: ScrollText,
   bell: Bell,

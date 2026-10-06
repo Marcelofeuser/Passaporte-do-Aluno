@@ -18,7 +18,7 @@ export function toFieldErrors(error: z.ZodError): Record<string, string> {
   return out
 }
 
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z
     .string()
     .trim()
@@ -52,6 +52,159 @@ export const schoolUserInput = z.object({
 export const profileInput = z.object({
   name: z.string().trim().min(2, 'Informe seu nome').max(120),
 })
+
+const digits = (len: number, label: string) =>
+  optionalText(24)
+    .transform((v) => (v ? v.replace(/\D/g, '') : null))
+    .refine((v) => !v || v.length === len, `${label} deve ter ${len} dígitos`)
+
+const optionalEmail = optionalText(160).refine(
+  (v) => !v || z.email().safeParse(v).success,
+  'E-mail inválido',
+)
+
+const optionalDate = optionalText(10).refine(
+  (v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v),
+  'Data inválida',
+)
+
+const id = z.uuid('Registro inválido')
+const optionalId = z
+  .string()
+  .transform((v) => (v === '' ? null : v))
+  .pipe(z.uuid().nullable())
+  .optional()
+
+export const addressInput = z.object({
+  addressZip: digits(8, 'CEP'),
+  addressStreet: optionalText(160),
+  addressNumber: optionalText(20),
+  addressComplement: optionalText(80),
+  addressDistrict: optionalText(80),
+  addressCity: optionalText(80),
+  addressState: optionalText(2)
+    .transform((v) => (v ? v.toUpperCase() : null))
+    .refine((v) => !v || /^[A-Z]{2}$/.test(v), 'UF inválida'),
+})
+
+export const schoolSettingsInput = addressInput.extend({
+  name: z.string().trim().min(3, 'Informe o nome da escola').max(160),
+  legalName: optionalText(200),
+  cnpj: digits(14, 'CNPJ'),
+  inepCode: digits(8, 'Código INEP'),
+  stateRegistration: optionalText(30),
+  directorName: optionalText(120),
+  email: optionalEmail,
+  phone: optionalText(20),
+  website: optionalText(200).refine(
+    (v) => !v || z.url().safeParse(v).success,
+    'Informe a URL completa (https://...)',
+  ),
+})
+
+export const SEX_OPTIONS = { F: 'Feminino', M: 'Masculino', O: 'Outro / não informar' } as const
+
+export const studentInput = addressInput.extend({
+  fullName: z.string().trim().min(3, 'Informe o nome completo').max(160),
+  socialName: optionalText(160),
+  birthDate: optionalDate,
+  sex: z.enum(['F', 'M', 'O', '']).optional().transform((v) => v || null),
+  cpf: digits(11, 'CPF'),
+  registrationCode: optionalText(30),
+  email: optionalEmail,
+  phone: optionalText(20),
+  notes: optionalText(2000),
+})
+
+export const RELATIONSHIPS = {
+  MOTHER: 'Mãe',
+  FATHER: 'Pai',
+  GUARDIAN: 'Responsável legal',
+  GRANDPARENT: 'Avó/Avô',
+  OTHER: 'Outro',
+} as const
+
+export const parentInput = z.object({
+  studentId: id,
+  fullName: z.string().trim().min(3, 'Informe o nome do responsável').max(160),
+  relationship: z.enum(Object.keys(RELATIONSHIPS) as [keyof typeof RELATIONSHIPS], 'Parentesco inválido'),
+  email: optionalEmail,
+  phone: optionalText(20),
+  cpf: digits(11, 'CPF'),
+})
+
+export const teacherInput = z.object({
+  fullName: z.string().trim().min(3, 'Informe o nome do professor').max(160),
+  email: optionalEmail,
+  phone: optionalText(20),
+})
+
+export const subjectInput = z.object({
+  name: z.string().trim().min(2, 'Informe o nome da disciplina').max(80),
+  code: optionalText(12),
+})
+
+export const academicYearInput = z
+  .object({
+    year: z.coerce.number().int().min(2000, 'Ano inválido').max(2100, 'Ano inválido'),
+    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe o início'),
+    endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe o término'),
+    isCurrent: z.string().optional().transform((v) => v === 'on'),
+  })
+  .refine((v) => v.endsOn > v.startsOn, { message: 'O término deve ser após o início', path: ['endsOn'] })
+
+export const SHIFTS = {
+  MORNING: 'Manhã',
+  AFTERNOON: 'Tarde',
+  EVENING: 'Noite',
+  FULL: 'Integral',
+} as const
+
+export const classInput = z.object({
+  academicYearId: id,
+  name: z.string().trim().min(1, 'Informe o nome da turma').max(60),
+  grade: z.string().trim().min(1, 'Informe a série/ano').max(60),
+  shift: z.enum(Object.keys(SHIFTS) as [keyof typeof SHIFTS], 'Turno inválido'),
+  capacity: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v) : null))
+    .refine((v) => v === null || (Number.isInteger(v) && v > 0 && v <= 200), 'Capacidade inválida'),
+  homeroomTeacherId: optionalId,
+})
+
+export const classSubjectInput = z.object({
+  classId: id,
+  subjectId: id,
+  teacherId: optionalId,
+})
+
+export const teacherSubjectInput = z.object({ teacherId: id, subjectId: id })
+
+export const enrollmentInput = z.object({ studentId: id, classId: id })
+
+export const DOCUMENT_KINDS = {
+  BIRTH_CERTIFICATE: 'Certidão de nascimento',
+  ID: 'RG / documento de identidade',
+  CPF: 'CPF',
+  VACCINATION: 'Carteira de vacinação',
+  TRANSFER: 'Declaração de transferência',
+  MEDICAL: 'Laudo / atestado médico',
+  OTHER: 'Outro',
+} as const
+
+export const documentInput = z.object({
+  studentId: id,
+  kind: z.enum(Object.keys(DOCUMENT_KINDS) as [keyof typeof DOCUMENT_KINDS], 'Tipo inválido'),
+  label: optionalText(120),
+})
+
+/** Extrai apenas campos de texto do FormData (ignora arquivos). */
+export function formText(formData: FormData) {
+  const out: Record<string, string> = {}
+  for (const [key, value] of formData) if (typeof value === 'string') out[key] = value
+  return out
+}
 
 export function slugify(value: string) {
   return value
