@@ -343,3 +343,34 @@ export function slugify(value: string) {
     .replace(/(^-|-$)/g, '')
     .slice(0, 60)
 }
+
+const currentYear = () => new Date().getFullYear()
+
+export const bookInput = z.object({
+  title: z.string().trim().min(2, 'Informe o título').max(200),
+  authors: z.string().trim().min(2, 'Informe o(s) autor(es)').max(300),
+  isbn: optionalText(20)
+    .transform((v) => (v ? v.replace(/[\s-]/g, '').toUpperCase() : null))
+    .refine((v) => !v || /^\d{13}$/.test(v) || /^\d{9}[\dX]$/.test(v), 'ISBN deve ter 10 ou 13 dígitos'),
+  publisher: optionalText(120),
+  category: optionalText(60),
+  publishedYear: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v) : null))
+    .refine((v) => v === null || (Number.isInteger(v) && v >= 1400 && v <= currentYear() + 1), 'Ano inválido'),
+  notes: optionalText(1000),
+})
+
+export const newBookInput = bookInput.extend({
+  copies: z.coerce.number().int('Quantidade inválida').min(0, 'Mínimo 0').max(200, 'Máximo 200 exemplares'),
+})
+
+export const libraryRulesInput = z.object({
+  loanDays: z.coerce.number().int().min(1, 'Entre 1 e 120 dias').max(120, 'Entre 1 e 120 dias'),
+  maxRenewals: z.coerce.number().int().min(0, 'Entre 0 e 10').max(10, 'Entre 0 e 10'),
+  maxLoans: z.coerce.number().int().min(1, 'Entre 1 e 20').max(20, 'Entre 1 e 20'),
+  finePerDay: decimal('Multa diária', 0, 100),
+  dueAlertDays: z.coerce.number().int().min(0, 'Entre 0 e 14').max(14, 'Entre 0 e 14'),
+  blockOverdue: z.string().optional().transform((v) => v === 'on'),
+})

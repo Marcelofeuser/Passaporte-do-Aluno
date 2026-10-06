@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { Card, PageTitle } from '@/components/ui/card'
 import { SCHOOL_SECTIONS } from '@/lib/navigation'
 import { can } from '@/lib/rbac'
+import { getLibraryStats } from '@/lib/library-queries'
 import { getAcademicCounts, getCurrentYear } from '@/lib/school-queries'
 import { requirePageContext } from '@/lib/session'
 
@@ -19,12 +20,17 @@ export default async function SchoolHubPage() {
   const sections = SCHOOL_SECTIONS.filter((s) => can(role, s.permission))
   if (sections.length === 0) redirect('/dashboard')
 
-  const [counts, year] = await Promise.all([getAcademicCounts(schoolId), getCurrentYear(schoolId)])
+  const [counts, year, library] = await Promise.all([
+    getAcademicCounts(schoolId),
+    getCurrentYear(schoolId),
+    can(role, 'school:manage_library') ? getLibraryStats(schoolId) : null,
+  ])
   const countFor: Record<string, number | undefined> = {
     '/school/students': counts.students,
     '/school/classes': counts.classes,
     '/school/teachers': counts.teachers,
     '/school/subjects': counts.subjects,
+    '/school/library': library?.activeLoans,
   }
 
   return (

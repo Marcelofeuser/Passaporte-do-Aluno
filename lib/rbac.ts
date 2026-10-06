@@ -3,6 +3,7 @@ export const ROLES = [
   'SCHOOL_ADMIN',
   'COORDINATOR',
   'TEACHER',
+  'LIBRARIAN',
   'PARENT',
   'STUDENT',
 ] as const
@@ -19,6 +20,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   SCHOOL_ADMIN: 'Administrador da escola',
   COORDINATOR: 'Coordenador',
   TEACHER: 'Professor',
+  LIBRARIAN: 'Bibliotecário(a)',
   PARENT: 'Responsável',
   STUDENT: 'Aluno',
 }
@@ -39,6 +41,8 @@ const PERMISSIONS = {
   'school:manage_all_grades': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:manage_attendance': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
   'school:manage_all_attendance': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:manage_library': ['SCHOOL_ADMIN', 'COORDINATOR', 'LIBRARIAN'],
+  'school:configure_library': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'family:view': ['PARENT', 'STUDENT'],
 } as const satisfies Record<string, readonly Role[]>
 
@@ -53,8 +57,9 @@ export function can(role: Role | null | undefined, permission: Permission): bool
 const ASSIGNABLE: Record<Role, readonly Role[]> = {
   SUPER_ADMIN: SCHOOL_ROLES,
   SCHOOL_ADMIN: SCHOOL_ROLES,
-  COORDINATOR: ['TEACHER', 'PARENT', 'STUDENT'],
+  COORDINATOR: ['TEACHER', 'LIBRARIAN', 'PARENT', 'STUDENT'],
   TEACHER: [],
+  LIBRARIAN: [],
   PARENT: [],
   STUDENT: [],
 }
