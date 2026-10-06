@@ -43,6 +43,10 @@ const PERMISSIONS = {
   'school:manage_all_attendance': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:manage_library': ['SCHOOL_ADMIN', 'COORDINATOR', 'LIBRARIAN'],
   'school:configure_library': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:manage_calendar': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:view_calendar': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER', 'LIBRARIAN'],
+  'school:manage_appointments': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
+  'family:book_appointments': ['PARENT', 'STUDENT'],
   'family:view': ['PARENT', 'STUDENT'],
 } as const satisfies Record<string, readonly Role[]>
 

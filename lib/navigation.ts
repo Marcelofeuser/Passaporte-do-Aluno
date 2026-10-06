@@ -3,7 +3,7 @@ import { can, type Permission, type Role } from '@/lib/rbac'
 export type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'schools' | 'school' | 'users' | 'audit' | 'bell' | 'user' | 'family' | 'finance' | 'library'
+  icon: 'home' | 'schools' | 'school' | 'users' | 'audit' | 'bell' | 'user' | 'family' | 'finance' | 'library' | 'calendar'
 }
 
 export function navFor(role: Role | null | undefined, superAdmin: boolean): NavItem[] {
@@ -18,6 +18,7 @@ export function navFor(role: Role | null | undefined, superAdmin: boolean): NavI
     items.push({ href: '/family', label: role === 'STUDENT' ? 'Meu boletim' : 'Meus filhos', icon: 'family' })
     items.push({ href: '/family/finance', label: 'Financeiro', icon: 'finance' })
     items.push({ href: '/family/library', label: 'Biblioteca', icon: 'library' })
+    items.push({ href: '/family/agenda', label: 'Agenda', icon: 'calendar' })
   }
   if (superAdmin || can(role, 'school:view_audit')) {
     items.push({ href: '/audit', label: 'Auditoria', icon: 'audit' })
@@ -46,6 +47,8 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
     permission: 'school:manage_attendance',
   },
   { href: '/school/library', label: 'Biblioteca', description: 'Acervo, exemplares, empréstimos e devoluções', permission: 'school:manage_library' },
+  { href: '/school/calendar', label: 'Calendário', description: 'Eventos, dias letivos e comunicação escolar', permission: 'school:view_calendar' },
+  { href: '/school/appointments', label: 'Atendimentos', description: 'Horários disponíveis para famílias', permission: 'school:manage_appointments' },
   { href: '/school/teachers', label: 'Professores', description: 'Corpo docente e disciplinas que lecionam', permission: 'school:view_academic' },
   { href: '/school/subjects', label: 'Disciplinas', description: 'Componentes curriculares da escola', permission: 'school:view_academic' },
   { href: '/school/years', label: 'Anos letivos', description: 'Calendário e ano letivo vigente', permission: 'school:view_academic' },
