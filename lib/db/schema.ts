@@ -66,6 +66,16 @@ export const verification = pgTable('verification', {
 
 /* ---------- Domínio escolar ---------- */
 
+const address = () => ({
+  addressZip: text('address_zip'),
+  addressStreet: text('address_street'),
+  addressNumber: text('address_number'),
+  addressComplement: text('address_complement'),
+  addressDistrict: text('address_district'),
+  addressCity: text('address_city'),
+  addressState: text('address_state'),
+})
+
 export const school = pgTable('school', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
@@ -73,6 +83,13 @@ export const school = pgTable('school', {
   cnpj: text('cnpj'),
   email: text('email'),
   phone: text('phone'),
+  legalName: text('legal_name'),
+  inepCode: text('inep_code'),
+  stateRegistration: text('state_registration'),
+  directorName: text('director_name'),
+  website: text('website'),
+  ...address(),
+  logoPathname: text('logo_pathname'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -107,6 +124,14 @@ export const student = pgTable('student', {
   fullName: text('full_name').notNull(),
   socialName: text('social_name'),
   birthDate: date('birth_date'),
+  registrationCode: text('registration_code'),
+  sex: text('sex'),
+  cpf: text('cpf'),
+  photoPathname: text('photo_pathname'),
+  email: text('email'),
+  phone: text('phone'),
+  ...address(),
+  notes: text('notes'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -119,6 +144,7 @@ export const parent = pgTable('parent', {
   fullName: text('full_name').notNull(),
   email: text('email'),
   phone: text('phone'),
+  cpf: text('cpf'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -164,8 +190,44 @@ export const schoolClass = pgTable('class', {
   name: text('name').notNull(),
   grade: text('grade').notNull(),
   shift: text('shift').notNull().default('MORNING'),
+  homeroomTeacherId: uuid('homeroom_teacher_id'),
+  capacity: integer('capacity'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const classSubject = pgTable('class_subject', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  classId: uuid('class_id').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  teacherId: uuid('teacher_id'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+
+export const teacherSubject = pgTable(
+  'teacher_subject',
+  {
+    teacherId: uuid('teacher_id').notNull(),
+    subjectId: uuid('subject_id').notNull(),
+    schoolId: uuid('school_id').notNull(),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.teacherId, t.subjectId] })],
+)
+
+export const studentDocument = pgTable('student_document', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  kind: text('kind').notNull(),
+  label: text('label').notNull(),
+  pathname: text('pathname').notNull(),
+  contentType: text('content_type').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  uploadedBy: text('uploaded_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
 })
 
