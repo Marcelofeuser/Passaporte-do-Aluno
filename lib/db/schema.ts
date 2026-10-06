@@ -94,6 +94,12 @@ export const school = pgTable('school', {
   passingGrade: numeric('passing_grade', { precision: 4, scale: 2, mode: 'number' }).notNull().default(6),
   minAttendance: integer('min_attendance').notNull().default(75),
   lateAlertThreshold: integer('late_alert_threshold').notNull().default(3),
+  libraryLoanDays: integer('library_loan_days').notNull().default(14),
+  libraryMaxRenewals: integer('library_max_renewals').notNull().default(2),
+  libraryMaxLoans: integer('library_max_loans').notNull().default(3),
+  libraryFinePerDay: numeric('library_fine_per_day', { precision: 8, scale: 2, mode: 'number' }).notNull().default(0),
+  libraryBlockOverdue: boolean('library_block_overdue').notNull().default(true),
+  libraryDueAlertDays: integer('library_due_alert_days').notNull().default(2),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -333,6 +339,76 @@ export const attendanceChange = pgTable('attendance_change', {
   newStatus: text('new_status').notNull(),
   reason: text('reason').notNull(),
   changedBy: text('changed_by').notNull(),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+
+/* ---------- Biblioteca ---------- */
+
+export const book = pgTable('book', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  title: text('title').notNull(),
+  authors: text('authors').notNull(),
+  isbn: text('isbn'),
+  publisher: text('publisher'),
+  category: text('category'),
+  publishedYear: integer('published_year'),
+  notes: text('notes'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const bookCopy = pgTable('book_copy', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  bookId: uuid('book_id').notNull(),
+  code: text('code').notNull(),
+  condition: text('condition').notNull().default('GOOD'),
+  status: text('status').notNull().default('AVAILABLE'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const bookLoan = pgTable('book_loan', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  copyId: uuid('copy_id').notNull(),
+  bookId: uuid('book_id').notNull(),
+  borrowerType: text('borrower_type').notNull(),
+  studentId: uuid('student_id'),
+  teacherId: uuid('teacher_id'),
+  loanedOn: date('loaned_on').notNull(),
+  dueOn: date('due_on').notNull(),
+  returnedOn: date('returned_on'),
+  status: text('status').notNull().default('ACTIVE'),
+  renewals: integer('renewals').notNull().default(0),
+  lateDays: integer('late_days').notNull().default(0),
+  fineAmount: numeric('fine_amount', { precision: 10, scale: 2, mode: 'number' }).notNull().default(0),
+  fineStatus: text('fine_status').notNull().default('NONE'),
+  returnCondition: text('return_condition'),
+  notes: text('notes'),
+  dueAlertSentAt: timestamp('due_alert_sent_at', tz),
+  overdueAlertSentAt: timestamp('overdue_alert_sent_at', tz),
+  createdBy: text('created_by'),
+  closedBy: text('closed_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+export const bookLoanEvent = pgTable('book_loan_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  loanId: uuid('loan_id').notNull(),
+  kind: text('kind').notNull(),
+  oldDueOn: date('old_due_on'),
+  newDueOn: date('new_due_on'),
+  reason: text('reason'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  actorUserId: text('actor_user_id'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
