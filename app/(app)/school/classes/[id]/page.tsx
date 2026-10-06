@@ -6,7 +6,7 @@ import { endEnrollment } from '@/app/actions/students'
 import { ActionForm, ConfirmSubmit } from '@/components/school/action-form'
 import { BackLink } from '@/components/school/form-fields'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
-import { Field, Select } from '@/components/ui/field'
+import { Field, Input, Select } from '@/components/ui/field'
 import { can } from '@/lib/rbac'
 import { UUID_RE } from '@/lib/school-action'
 import { requireSchoolPage } from '@/lib/school-page'
@@ -23,6 +23,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
   if (!cls) notFound()
 
   const canSeeStudents = can(role, 'school:view_students')
+  const canGrade = can(role, 'school:manage_all_grades')
   const [subjects, roster, allSubjects, teachers] = await Promise.all([
     getClassSubjects(schoolId, id),
     getClassRoster(schoolId, id),
@@ -48,8 +49,16 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
               <li key={s.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex flex-1 flex-col">
                   <span className="font-semibold">{s.subjectName}</span>
-                  <span className="text-sm text-muted-foreground">{s.teacherName ?? 'Sem professor'}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {s.teacherName ?? 'Sem professor'}
+                    {s.workloadHours ? ` · ${s.workloadHours} h/ano` : ''}
+                  </span>
                 </div>
+                {canGrade ? (
+                  <Link href={`/school/grades/${s.id}`} className="text-sm font-semibold text-primary hover:underline">
+                    Diário
+                  </Link>
+                ) : null}
                 {canManage ? (
                   <form action={removeClassSubject}>
                     <input type="hidden" name="classId" value={id} />
@@ -64,7 +73,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
         {canManage && allSubjects.length > 0 ? (
           <ActionForm action={addClassSubject} submitLabel="Adicionar / atualizar" className="border-t border-border p-4">
             <input type="hidden" name="classId" value={id} />
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Disciplina" htmlFor="cs-subject">
                 <Select id="cs-subject" name="subjectId" required>
                   {allSubjects.map((s) => (
@@ -83,6 +92,9 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
                     </option>
                   ))}
                 </Select>
+              </Field>
+              <Field label="Carga horária (h/ano)" htmlFor="cs-hours">
+                <Input id="cs-hours" name="workloadHours" type="number" min={1} max={2000} inputMode="numeric" />
               </Field>
             </div>
           </ActionForm>

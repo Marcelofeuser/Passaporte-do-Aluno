@@ -105,6 +105,8 @@ export async function getStudentEnrollments(schoolId: string, studentId: string)
       status: enrollment.status,
       grade: enrollment.grade,
       enrolledOn: enrollment.enrolledOn,
+      statusChangedOn: enrollment.statusChangedOn,
+      statusNote: enrollment.statusNote,
       year: academicYear.year,
       className: schoolClass.name,
       classId: enrollment.classId,
@@ -235,6 +237,7 @@ export async function getClassSubjects(schoolId: string, classId: string) {
       subjectName: subject.name,
       subjectCode: subject.code,
       teacherName: teacher.fullName,
+      workloadHours: classSubject.workloadHours,
     })
     .from(classSubject)
     .innerJoin(subject, eq(subject.id, classSubject.subjectId))

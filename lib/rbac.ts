@@ -33,6 +33,8 @@ const PERMISSIONS = {
   'school:view_academic': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
   'school:manage_academic': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:view_students': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:manage_grades': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
+  'school:manage_all_grades': ['SCHOOL_ADMIN', 'COORDINATOR'],
 } as const satisfies Record<string, readonly Role[]>
 
 export type Permission = keyof typeof PERMISSIONS

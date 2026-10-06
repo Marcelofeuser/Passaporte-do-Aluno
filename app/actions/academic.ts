@@ -216,7 +216,7 @@ export async function addClassSubject(_: ActionState, formData: FormData): Promi
     const { schoolId, userId } = await requireSchoolAction(MANAGE)
     const parsed = classSubjectInput.safeParse(formText(formData))
     if (!parsed.success) return { ok: false, fieldErrors: toFieldErrors(parsed.error) }
-    const { classId, subjectId, teacherId } = parsed.data
+    const { classId, subjectId, teacherId, workloadHours } = parsed.data
     if (!(await owns(schoolClass, classId, schoolId)) || !(await owns(subject, subjectId, schoolId))) {
       return { ok: false, message: 'Turma ou disciplina inválida.' }
     }
@@ -228,9 +228,12 @@ export async function addClassSubject(_: ActionState, formData: FormData): Promi
       .from(classSubject)
       .where(and(eq(classSubject.classId, classId), eq(classSubject.subjectId, subjectId)))
     if (existing) {
-      await db.update(classSubject).set({ teacherId: teacherId ?? null }).where(eq(classSubject.id, existing.id))
+      await db
+        .update(classSubject)
+        .set({ teacherId: teacherId ?? null, workloadHours })
+        .where(eq(classSubject.id, existing.id))
     } else {
-      await db.insert(classSubject).values({ schoolId, classId, subjectId, teacherId: teacherId ?? null })
+      await db.insert(classSubject).values({ schoolId, classId, subjectId, teacherId: teacherId ?? null, workloadHours })
     }
     if (teacherId) await db.insert(teacherSubject).values({ teacherId, subjectId, schoolId }).onConflictDoNothing()
 
@@ -240,10 +243,10 @@ export async function addClassSubject(_: ActionState, formData: FormData): Promi
       entityId: classId,
       schoolId,
       actorUserId: userId,
-      metadata: { subjectId, teacherId: teacherId ?? null },
+      metadata: { subjectId, teacherId: teacherId ?? null, workloadHours },
     })
     revalidatePath(`/school/classes/${classId}`)
-    return { ok: true, message: existing ? 'Professor da disciplina atualizado.' : 'Disciplina adicionada à turma.' }
+    return { ok: true, message: existing ? 'Disciplina da turma atualizada.' : 'Disciplina adicionada à turma.' }
   })
 }
 
