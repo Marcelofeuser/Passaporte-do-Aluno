@@ -473,6 +473,48 @@ export const notification = pgTable('notification', {
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
+export const communicationCategory = pgTable('communication_category', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  color: text('color'),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+}, (t) => [uniqueIndex('communication_category_school_name_uq').on(t.schoolId, t.name)])
+
+export const announcement = pgTable('announcement', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  categoryId: uuid('category_id').notNull().references(() => communicationCategory.id),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  priority: text('priority').notNull().default('NORMAL'),
+  publishAt: timestamp('publish_at', tz).notNull().defaultNow(),
+  expiresAt: date('expires_at'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+}, (t) => [index('announcement_school_publish_idx').on(t.schoolId, t.publishAt)])
+
+export const announcementAudience = pgTable('announcement_audience', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  announcementId: uuid('announcement_id').notNull().references(() => announcement.id, { onDelete: 'cascade' }),
+  audienceType: text('audience_type').notNull(),
+  classId: uuid('class_id'),
+  academicYearId: uuid('academic_year_id'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+}, (t) => [index('announcement_audience_school_idx').on(t.schoolId, t.audienceType, t.classId, t.academicYearId)])
+
+export const announcementRead = pgTable('announcement_read', {
+  schoolId: uuid('school_id').notNull().references(() => school.id, { onDelete: 'cascade' }),
+  announcementId: uuid('announcement_id').notNull().references(() => announcement.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  readAt: timestamp('read_at', tz).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.announcementId, t.userId] }), index('announcement_read_school_idx').on(t.schoolId, t.readAt)])
+
 /* ---------- Gestão financeira escolar (isolada por escola) ---------- */
 export const financeCategory = pgTable('finance_category', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -82,6 +82,19 @@ export const studentPaymentPlanInput = z.object({ studentId: id, planId: id, sta
 export const invoiceInput = z.object({ studentId: id, reference: z.string().trim().min(1).max(120), dueOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), amount: z.coerce.number().finite().positive().max(99999999), description: z.string().trim().min(2).max(300) })
 export const settlementInput = z.object({ invoiceId: id, amount: z.coerce.number().finite().positive(), paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), method: z.enum(['CASH', 'PIX', 'CARD', 'TRANSFER', 'OTHER']), justification: optionalText(1000) }).superRefine((v, ctx) => { if (v.paidOn < new Date().toISOString().slice(0, 10) && !v.justification) ctx.addIssue({ code: 'custom', path: ['justification'], message: 'Justificativa obrigatória para baixa retroativa.' }) })
 export const financeJustificationInput = z.object({ invoiceId: id, justification: z.string().trim().min(5).max(1000) })
+export const communicationCategoryInput = z.object({ name: z.string().trim().min(2).max(80), color: z.string().trim().max(20).optional() })
+export const announcementInput = z.object({
+  categoryId: id,
+  title: z.string().trim().min(3).max(180),
+  body: z.string().trim().min(3).max(10000),
+  priority: z.enum(['NORMAL', 'URGENT']),
+  publishAt: z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, 'Data inválida').optional(),
+  expiresAt: optionalDate,
+  audienceType: z.enum(['SCHOOL', 'CLASS', 'YEAR']),
+  audienceId: optionalId,
+}).superRefine((v, ctx) => {
+  if (v.audienceType !== 'SCHOOL' && !v.audienceId) ctx.addIssue({ code: 'custom', path: ['audienceId'], message: 'Selecione o público.' })
+})
 
 export const addressInput = z.object({
   addressZip: digits(8, 'CEP'),

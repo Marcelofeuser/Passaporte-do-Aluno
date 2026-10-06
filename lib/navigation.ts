@@ -13,6 +13,7 @@ export function navFor(role: Role | null | undefined, superAdmin: boolean): NavI
     items.push({ href: '/school', label: 'Escola', icon: 'school' })
   }
   if (can(role, 'school:manage_finance')) items.push({ href: '/school/finance', label: 'Financeiro', icon: 'finance' })
+  if (can(role, 'school:manage_communications')) items.push({ href: '/school/communications', label: 'Comunicação', icon: 'bell' })
   if (can(role, 'family:view')) {
     items.push({ href: '/family', label: role === 'STUDENT' ? 'Meu boletim' : 'Meus filhos', icon: 'family' })
     items.push({ href: '/family/finance', label: 'Financeiro', icon: 'finance' })
@@ -49,4 +50,5 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/users', label: 'Usuários', description: 'Contas de acesso e perfis', permission: 'school:view_users' },
   { href: '/school/settings', label: 'Dados da escola', description: 'Identificação, endereço e logotipo', permission: 'school:manage_settings' },
   { href: '/school/finance', label: 'Gestão financeira', description: 'Planos, cobranças, faturas e recebimentos', permission: 'school:manage_finance' },
+  { href: '/school/communications', label: 'Comunicação escolar', description: 'Categorias, mural, públicos e recibos de leitura', permission: 'school:manage_communications' },
 ]

@@ -93,3 +93,7 @@ export default defineConfig([
 ## Fase 6 — Gestão Financeira Escolar
 
 A migração `migrations/0006_finance.sql` cria categorias e tipos de cobrança, planos, atribuições, faturas, lançamentos, baixas e auditoria. Execute-a no Neon/Postgres após as migrações anteriores. Todas as tabelas possuem `school_id`; ações escolares filtram o tenant e o portal/API da família filtram apenas alunos vinculados ao usuário autenticado. A baixa com data retroativa e cancelamentos exigem justificativa e ficam auditados.
+
+## Fase 7 — Comunicação escolar / mural de avisos
+
+A migração `migrations/0007_communications.sql` adiciona categorias configuráveis, avisos, públicos por escola/turma/ano letivo e recibos de leitura, sempre isolados por `school_id`. Administradores e coordenadores possuem `school:manage_communications` e publicam em `/school/communications`; professores não publicam nesta fase para evitar alcance indevido. O portal `/family/communications` resolve o público no servidor usando somente a escola ativa e matrículas ativas dos dependentes, e permite marcar avisos como lidos. A API autenticada `/api/announcements` oferece o feed filtrado e o registro de leitura. Publicações e categorias ficam registradas na auditoria.
