@@ -202,6 +202,57 @@ export const enrollmentStatusInput = z.object({
   note: optionalText(300),
 })
 
+export const OCCURRENCE_SEVERITY = {
+  LEVE: 'Leve',
+  MODERADA: 'Moderada',
+  GRAVE: 'Grave',
+} as const
+
+export const OCCURRENCE_VISIBILITY = {
+  INTERNAL: 'Interna (somente equipe)',
+  FAMILY: 'Visível para responsáveis',
+} as const
+
+export const OCCURRENCE_STATUS = {
+  PENDENTE: 'Pendente',
+  EM_ACOMPANHAMENTO: 'Em acompanhamento',
+  RESOLVIDA: 'Resolvida',
+} as const
+
+export const occurrenceTypeInput = z.object({
+  name: z.string().trim().min(2, 'Informe o nome do tipo').max(80),
+  description: optionalText(300),
+  sortOrder: z.coerce.number().int().min(0, 'Ordem inválida').max(999, 'Ordem inválida').default(0),
+  active: z
+    .string()
+    .optional()
+    .transform((v) => v === undefined ? true : v === 'on' || v === 'true'),
+})
+
+export const occurrenceInput = z.object({
+  studentId: id,
+  classId: optionalId,
+  occurrenceTypeId: id,
+  occurredAt: z.string().trim().min(10, 'Informe data e hora da ocorrência').max(30),
+  severity: z.enum(Object.keys(OCCURRENCE_SEVERITY) as [keyof typeof OCCURRENCE_SEVERITY], 'Gravidade inválida'),
+  visibility: z.enum(Object.keys(OCCURRENCE_VISIBILITY) as [keyof typeof OCCURRENCE_VISIBILITY], 'Visibilidade inválida'),
+  status: z.enum(Object.keys(OCCURRENCE_STATUS) as [keyof typeof OCCURRENCE_STATUS], 'Status inválido'),
+  description: z.string().trim().min(5, 'Descreva a ocorrência').max(4000),
+})
+
+export const occurrenceActionInput = z.object({
+  occurrenceId: id,
+  actionType: z.string().trim().min(2, 'Informe o tipo da ação').max(80),
+  description: z.string().trim().min(5, 'Descreva o acompanhamento').max(1000),
+  performedAt: optionalText(30),
+  dueDate: optionalDate,
+})
+
+export const occurrenceUpdateInput = occurrenceInput.extend({
+  occurrenceId: id,
+  justification: z.string().trim().min(5, 'Justifique a alteração (mín. 5 caracteres)').max(500),
+})
+
 export const ASSESSMENT_KINDS = {
   EXAM: 'Prova',
   ASSIGNMENT: 'Trabalho',

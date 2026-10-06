@@ -1,6 +1,8 @@
 import {
   boolean,
+  check,
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -8,8 +10,10 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 const tz = { withTimezone: true } as const
 
@@ -94,6 +98,7 @@ export const school = pgTable('school', {
   passingGrade: numeric('passing_grade', { precision: 4, scale: 2, mode: 'number' }).notNull().default(6),
   minAttendance: integer('min_attendance').notNull().default(75),
   lateAlertThreshold: integer('late_alert_threshold').notNull().default(3),
+  occurrenceAlertThreshold: integer('occurrence_alert_threshold').notNull().default(3),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -335,6 +340,114 @@ export const attendanceChange = pgTable('attendance_change', {
   changedBy: text('changed_by').notNull(),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
+
+export const occurrenceType = pgTable(
+  'occurrence_type',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id')
+      .notNull()
+      .references(() => school.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    active: boolean('active').notNull().default(true),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', tz),
+  },
+  (t) => [
+    uniqueIndex('occurrence_type_school_name_uq').on(t.schoolId, t.name),
+    index('occurrence_type_school_active_idx').on(t.schoolId, t.active),
+  ],
+)
+
+export const occurrence = pgTable(
+  'occurrence',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id')
+      .notNull()
+      .references(() => school.id, { onDelete: 'cascade' }),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => student.id, { onDelete: 'restrict' }),
+    classId: uuid('class_id').references(() => schoolClass.id, { onDelete: 'set null' }),
+    reporterUserId: text('reporter_user_id'),
+    occurrenceTypeId: uuid('occurrence_type_id')
+      .notNull()
+      .references(() => occurrenceType.id, { onDelete: 'restrict' }),
+    occurredAt: timestamp('occurred_at', tz).notNull().defaultNow(),
+    severity: text('severity').notNull().default('LEVE'),
+    visibility: text('visibility').notNull().default('INTERNAL'),
+    status: text('status').notNull().default('PENDENTE'),
+    description: text('description').notNull(),
+    archivedAt: timestamp('archived_at', tz),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', tz),
+  },
+  (t) => [
+    index('occurrence_school_student_idx').on(t.schoolId, t.studentId),
+    index('occurrence_school_occurred_idx').on(t.schoolId, t.occurredAt),
+    index('occurrence_school_status_idx').on(t.schoolId, t.status),
+    check(
+      'occurrence_severity_check',
+      sql`${t.severity} in ('LEVE', 'MODERADA', 'GRAVE')`,
+    ),
+    check(
+      'occurrence_visibility_check',
+      sql`${t.visibility} in ('INTERNAL', 'FAMILY')`,
+    ),
+    check(
+      'occurrence_status_check',
+      sql`${t.status} in ('PENDENTE', 'EM_ACOMPANHAMENTO', 'RESOLVIDA')`,
+    ),
+  ],
+)
+
+export const occurrenceAction = pgTable(
+  'occurrence_action',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id')
+      .notNull()
+      .references(() => school.id, { onDelete: 'cascade' }),
+    occurrenceId: uuid('occurrence_id')
+      .notNull()
+      .references(() => occurrence.id, { onDelete: 'cascade' }),
+    actionType: text('action_type').notNull(),
+    description: text('description').notNull(),
+    performedBy: text('performed_by'),
+    performedAt: timestamp('performed_at', tz).notNull().defaultNow(),
+    dueDate: date('due_date'),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  },
+  (t) => [index('occurrence_action_occurrence_idx').on(t.schoolId, t.occurrenceId, t.performedAt)],
+)
+
+export const occurrenceAudit = pgTable(
+  'occurrence_audit',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id')
+      .notNull()
+      .references(() => school.id, { onDelete: 'cascade' }),
+    occurrenceId: uuid('occurrence_id')
+      .notNull()
+      .references(() => occurrence.id, { onDelete: 'cascade' }),
+    actorUserId: text('actor_user_id'),
+    action: text('action').notNull(),
+    justification: text('justification').notNull(),
+    beforeData: jsonb('before_data').$type<Record<string, unknown>>(),
+    afterData: jsonb('after_data').$type<Record<string, unknown>>(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  },
+  (t) => [index('occurrence_audit_occurrence_idx').on(t.schoolId, t.occurrenceId, t.createdAt)],
+)
 
 export const auditLog = pgTable('audit_log', {
   id: uuid('id').primaryKey().defaultRandom(),

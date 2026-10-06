@@ -73,3 +73,19 @@ export default defineConfig([
 ])
 
 ```
+
+## Fase 5 — Ocorrências e Disciplina Escolar
+
+- **Novas tabelas Drizzle**: `occurrence_type`, `occurrence`, `occurrence_action`, `occurrence_audit` (todas com `school_id` para isolamento multi-tenant) e novo campo `school.occurrence_alert_threshold` (padrão `3`).
+- **Permissões**:
+  - Tipos e limite crítico: `school:manage_academic` (admin/coordenador)
+  - Ocorrências e acompanhamentos: `school:manage_attendance` (equipe escolar autorizada)
+  - Portal da família: `family:view` com filtro server-side por vínculo válido do responsável/aluno.
+- **Rotas/telas**:
+  - Escola: `/school/occurrences` (filtros, paginação, CRUD, justificativa obrigatória em edição/arquivamento, acompanhamentos).
+  - Tipos/configuração: `/school/occurrences/types`.
+  - Família: `/family/occurrences` (somente ocorrências `FAMILY`, leitura).
+  - Ficha do aluno: resumo comportamental mensal/anual + histórico.
+- **Alertas**:
+  - Ocorrências `FAMILY` geram aviso para responsáveis vinculados.
+  - Ao atingir limite crítico no bimestre corrente (fallback calendário bimestral), coordenação/admin recebe alerta interno.
