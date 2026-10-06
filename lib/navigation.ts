@@ -37,6 +37,7 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/classes', label: 'Turmas', description: 'Turmas por ano letivo, disciplinas e alunos', permission: 'school:view_academic' },
   { href: '/school/grades', label: 'Diário e notas', description: 'Avaliações, lançamento de notas e médias', permission: 'school:manage_grades' },
   { href: '/school/attendance', label: 'Chamada e frequência', description: 'Presenças, faltas, atrasos e alertas', permission: 'school:manage_attendance' },
+  { href: '/school/occurrences', label: 'Ocorrências', description: 'Registro disciplinar, acompanhamento e avisos à família', permission: 'school:manage_discipline' },
   { href: '/school/library', label: 'Biblioteca', description: 'Acervo, exemplares, empréstimos e devoluções', permission: 'school:manage_library' },
   { href: '/school/calendar', label: 'Calendário', description: 'Eventos, dias letivos e comunicação escolar', permission: 'school:view_calendar' },
   { href: '/school/appointments', label: 'Atendimentos', description: 'Horários disponíveis para famílias', permission: 'school:manage_appointments' },

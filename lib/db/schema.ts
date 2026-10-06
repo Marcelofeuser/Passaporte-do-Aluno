@@ -8,6 +8,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 
@@ -100,6 +101,7 @@ export const school = pgTable('school', {
   libraryFinePerDay: numeric('library_fine_per_day', { precision: 8, scale: 2, mode: 'number' }).notNull().default(0),
   libraryBlockOverdue: boolean('library_block_overdue').notNull().default(true),
   libraryDueAlertDays: integer('library_due_alert_days').notNull().default(2),
+  occurrenceAlertThreshold: integer('occurrence_alert_threshold').notNull().default(3),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -493,6 +495,69 @@ export const auditLog = pgTable('audit_log', {
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
 
+export const occurrenceType = pgTable('occurrence_type', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  name: text('name').notNull(),
+  isPositive: boolean('is_positive').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const occurrence = pgTable('occurrence', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  classId: uuid('class_id'),
+  enrollmentId: uuid('enrollment_id'),
+  academicYearId: uuid('academic_year_id'),
+  typeId: uuid('type_id').notNull(),
+  recordedByUserId: text('recorded_by_user_id').notNull(),
+  teacherId: uuid('teacher_id'),
+  occurredOn: date('occurred_on').notNull(),
+  occurredAt: timestamp('occurred_at', tz).notNull(),
+  term: integer('term').notNull().default(1),
+  severity: text('severity').notNull(),
+  description: text('description').notNull(),
+  measures: jsonb('measures').$type<string[]>().notNull().default([]),
+  measuresNote: text('measures_note'),
+  status: text('status').notNull().default('PENDING'),
+  visibleToFamily: boolean('visible_to_family').notNull().default(true),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const occurrenceChange = pgTable('occurrence_change', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  occurrenceId: uuid('occurrence_id').notNull(),
+  action: text('action').notNull(),
+  reason: text('reason').notNull(),
+  changedBy: text('changed_by').notNull(),
+  oldValues: jsonb('old_values').$type<Record<string, unknown>>().notNull().default({}),
+  newValues: jsonb('new_values').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+
+export const occurrenceAlertSent = pgTable(
+  'occurrence_alert_sent',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull(),
+    academicYearId: uuid('academic_year_id').notNull(),
+    term: integer('term').notNull(),
+    kind: text('kind').notNull().default('CRITICAL_COUNT'),
+    countAtSend: integer('count_at_send').notNull(),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('occurrence_alert_sent_uniq').on(t.schoolId, t.studentId, t.academicYearId, t.term, t.kind)],
+)
+
 export const notification = pgTable('notification', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull(),
@@ -503,3 +568,35 @@ export const notification = pgTable('notification', {
   readAt: timestamp('read_at', tz),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 })
+
+export const schoolEnrollment = pgTable('school_enrollments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  academicYearId: uuid('academic_year_id').notNull(),
+  classId: uuid('class_id'),
+  status: text('status').notNull().default('pending'),
+  enrollmentType: text('enrollment_type').notNull().default('new'),
+  contractAccepted: boolean('contract_accepted').notNull().default(false),
+  contractAcceptedAt: timestamp('contract_accepted_at', tz),
+  financialCleared: boolean('financial_cleared').notNull().default(false),
+  documentsCleared: boolean('documents_cleared').notNull().default(false),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+export const academicHistory = pgTable('academic_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  academicYearId: uuid('academic_year_id').notNull(),
+  gradeLevel: text('grade_level').notNull(),
+  result: text('result').notNull(),
+  finalAverage: numeric('final_average', { precision: 5, scale: 2, mode: 'number' }),
+  attendanceRate: numeric('attendance_rate', { precision: 5, scale: 2, mode: 'number' }),
+  institutionName: text('institution_name'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+

@@ -26,6 +26,8 @@ import {
 } from '@/lib/attendance-queries'
 import { getPassingGrade, getStudentReport } from '@/lib/grade-queries'
 import { computeResult, formatScore, GRADE_STATUS_LABEL } from '@/lib/grades'
+import { formatOccurred, OCCURRENCE_SEVERITY, OCCURRENCE_STATUS } from '@/lib/occurrences'
+import { listStudentOccurrences, occurrenceSummary } from '@/lib/occurrence-queries'
 import { cn } from '@/lib/utils'
 import { formatDate, requireSchoolPage } from '@/lib/school-page'
 
@@ -83,14 +85,18 @@ export default async function FamilyPage({
   if (period === 'year') range.from = yearFrom
 
   const classId = enr?.classId
-  const [subjects, yearTotals, entries, report] = classId
+  const monthFrom = `${today.slice(0, 7)}-01`
+  const [subjects, yearTotals, entries, report, yearDisc, monthDisc, discipline] = classId
     ? await Promise.all([
         getClassSubjects(schoolId, [classId]),
         getAttendanceTotals(schoolId, { studentIds: [selected.id], classId, from: yearFrom, to: yearTo }),
         getAttendanceEntries(schoolId, [selected.id], range.from, range.to),
         getStudentReport(schoolId, selected.id, classId),
+        occurrenceSummary(schoolId, selected.id, yearFrom, yearTo, true),
+        occurrenceSummary(schoolId, selected.id, monthFrom, today, true),
+        listStudentOccurrences(schoolId, selected.id, { visibleOnly: true, limit: 20 }),
       ])
-    : [[], [], [], []]
+    : [[], [], [], [], { total: 0, mild: 0, moderate: 0, severe: 0 }, { total: 0, mild: 0, moderate: 0, severe: 0 }, []]
 
   const bySubject = groupTotals(yearTotals, (t) => t.classSubjectId)
   const overall = sumTotals([...bySubject.values()])
@@ -177,7 +183,7 @@ export default async function FamilyPage({
       </Card>
 
       <Card>
-        <CardHeader title="Ocorrências" description={`${formatDate(range.from)} a ${formatDate(range.to)}`} />
+        <CardHeader title="Faltas e atrasos" description={`${formatDate(range.from)} a ${formatDate(range.to)}`} />
         <nav aria-label="Período" className="flex flex-wrap gap-1.5 px-4 pb-3">
           {(Object.keys(PERIODS) as Period[]).map((p) => (
             <Link
@@ -195,7 +201,7 @@ export default async function FamilyPage({
           {periodTotals.earlyLeave} saída(s) antecipada(s)
         </p>
         {occurrences.length === 0 ? (
-          <EmptyState title="Nenhuma ocorrência" description="Sem faltas, atrasos ou saídas antecipadas no período." />
+          <EmptyState title="Nenhuma falta ou atraso" description="Sem faltas, atrasos ou saídas antecipadas no período." />
         ) : (
           <ul className="divide-y divide-border border-t border-border">
             {occurrences.map((e) => (
