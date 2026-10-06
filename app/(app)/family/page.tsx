@@ -112,6 +112,11 @@ export default async function FamilyPage({
         title={isStudent ? 'Meu boletim' : name}
         description={enr ? `${enr.className} · ${enr.grade}` : 'Sem matrícula ativa no ano letivo vigente.'}
       />
+      <p className="text-sm text-muted-foreground">
+        <Link href={`/family/occurrences?student=${selected.id}`} className="font-semibold text-primary hover:underline">
+          Ver ocorrências comportamentais compartilhadas com a família
+        </Link>
+      </p>
 
       {students.length > 1 ? (
         <nav aria-label="Escolher aluno" className="flex flex-wrap gap-2">

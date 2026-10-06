@@ -284,6 +284,28 @@ export async function listStudentOccurrences(
     .limit(opts?.limit ?? 100)
 }
 
+export async function getStudentBehaviorSummary(schoolId: string, studentId: string) {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  const yearStart = `${now.getFullYear()}-01-01`
+  const [monthRows, yearRows] = await Promise.all([
+    listStudentOccurrences(schoolId, studentId, { from: monthStart }),
+    listStudentOccurrences(schoolId, studentId, { from: yearStart }),
+  ])
+  const summarize = (rows: Array<{ severity: string }>) => ({
+    MILD: rows.filter((row) => row.severity === 'MILD').length,
+    MODERATE: rows.filter((row) => row.severity === 'MODERATE').length,
+    SEVERE: rows.filter((row) => row.severity === 'SEVERE').length,
+    GRAVE: rows.filter((row) => row.severity === 'SEVERE').length,
+  })
+  return {
+    monthTotal: monthRows.length,
+    yearTotal: yearRows.length,
+    month: summarize(monthRows),
+    year: summarize(yearRows),
+  }
+}
+
 export async function countDisciplinaryInTerm(
   schoolId: string,
   studentId: string,

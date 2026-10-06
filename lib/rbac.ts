@@ -32,6 +32,8 @@ const PERMISSIONS = {
   'school:manage_users': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:view_audit': ['SCHOOL_ADMIN'],
   'school:manage_settings': ['SCHOOL_ADMIN'],
+  'school:manage_finance': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:manage_communications': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:view_academic': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
   'school:manage_academic': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:view_students': ['SCHOOL_ADMIN', 'COORDINATOR'],

@@ -75,6 +75,27 @@ const optionalId = z
   .pipe(z.uuid().nullable())
   .optional()
 
+export const financeCategoryInput = z.object({ name: z.string().trim().min(2).max(100), description: optionalText(300) })
+export const financeChargeTypeInput = z.object({ name: z.string().trim().min(2).max(100), categoryId: optionalId, description: optionalText(300), defaultAmount: z.coerce.number().finite().min(0).max(99999999) })
+export const paymentPlanInput = z.object({ name: z.string().trim().min(2).max(100), description: optionalText(300), installments: z.coerce.number().int().min(1).max(60), dueDay: z.coerce.number().int().min(1).max(28) })
+export const studentPaymentPlanInput = z.object({ studentId: id, planId: id, startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+export const invoiceInput = z.object({ studentId: id, reference: z.string().trim().min(1).max(120), dueOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), amount: z.coerce.number().finite().positive().max(99999999), description: z.string().trim().min(2).max(300) })
+export const settlementInput = z.object({ invoiceId: id, amount: z.coerce.number().finite().positive(), paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), method: z.enum(['CASH', 'PIX', 'CARD', 'TRANSFER', 'OTHER']), justification: optionalText(1000) }).superRefine((v, ctx) => { if (v.paidOn < new Date().toISOString().slice(0, 10) && !v.justification) ctx.addIssue({ code: 'custom', path: ['justification'], message: 'Justificativa obrigatória para baixa retroativa.' }) })
+export const financeJustificationInput = z.object({ invoiceId: id, justification: z.string().trim().min(5).max(1000) })
+export const communicationCategoryInput = z.object({ name: z.string().trim().min(2).max(80), color: z.string().trim().max(20).optional() })
+export const announcementInput = z.object({
+  categoryId: id,
+  title: z.string().trim().min(3).max(180),
+  body: z.string().trim().min(3).max(10000),
+  priority: z.enum(['NORMAL', 'URGENT']),
+  publishAt: z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, 'Data inválida').optional(),
+  expiresAt: optionalDate,
+  audienceType: z.enum(['SCHOOL', 'CLASS', 'YEAR']),
+  audienceId: optionalId,
+}).superRefine((v, ctx) => {
+  if (v.audienceType !== 'SCHOOL' && !v.audienceId) ctx.addIssue({ code: 'custom', path: ['audienceId'], message: 'Selecione o público.' })
+})
+
 export const addressInput = z.object({
   addressZip: digits(8, 'CEP'),
   addressStreet: optionalText(160),
@@ -200,6 +221,57 @@ export const enrollmentStatusInput = z.object({
   status: z.enum(['TRANSFERRED', 'COMPLETED', 'CANCELLED'], 'Situação inválida'),
   changedOn: optionalDate,
   note: optionalText(300),
+})
+
+export const OCCURRENCE_SEVERITY = {
+  LEVE: 'Leve',
+  MODERADA: 'Moderada',
+  GRAVE: 'Grave',
+} as const
+
+export const OCCURRENCE_VISIBILITY = {
+  INTERNAL: 'Interna (somente equipe)',
+  FAMILY: 'Visível para responsáveis',
+} as const
+
+export const OCCURRENCE_STATUS = {
+  PENDENTE: 'Pendente',
+  EM_ACOMPANHAMENTO: 'Em acompanhamento',
+  RESOLVIDA: 'Resolvida',
+} as const
+
+export const occurrenceTypeInput = z.object({
+  name: z.string().trim().min(2, 'Informe o nome do tipo').max(80),
+  description: optionalText(300),
+  sortOrder: z.coerce.number().int().min(0, 'Ordem inválida').max(999, 'Ordem inválida').default(0),
+  active: z
+    .string()
+    .optional()
+    .transform((v) => v === undefined ? true : v === 'on' || v === 'true'),
+})
+
+export const occurrenceInput = z.object({
+  studentId: id,
+  classId: optionalId,
+  occurrenceTypeId: id,
+  occurredAt: z.string().trim().min(10, 'Informe data e hora da ocorrência').max(30),
+  severity: z.enum(Object.keys(OCCURRENCE_SEVERITY) as [keyof typeof OCCURRENCE_SEVERITY], 'Gravidade inválida'),
+  visibility: z.enum(Object.keys(OCCURRENCE_VISIBILITY) as [keyof typeof OCCURRENCE_VISIBILITY], 'Visibilidade inválida'),
+  status: z.enum(Object.keys(OCCURRENCE_STATUS) as [keyof typeof OCCURRENCE_STATUS], 'Status inválido'),
+  description: z.string().trim().min(5, 'Descreva a ocorrência').max(4000),
+})
+
+export const occurrenceActionInput = z.object({
+  occurrenceId: id,
+  actionType: z.string().trim().min(2, 'Informe o tipo da ação').max(80),
+  description: z.string().trim().min(5, 'Descreva o acompanhamento').max(1000),
+  performedAt: optionalText(30),
+  dueDate: optionalDate,
+})
+
+export const occurrenceUpdateInput = occurrenceInput.extend({
+  occurrenceId: id,
+  justification: z.string().trim().min(5, 'Justifique a alteração (mín. 5 caracteres)').max(500),
 })
 
 export const ASSESSMENT_KINDS = {
