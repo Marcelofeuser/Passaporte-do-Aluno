@@ -35,6 +35,12 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/classes', label: 'Turmas', description: 'Turmas por ano letivo, disciplinas e alunos', permission: 'school:view_academic' },
   { href: '/school/grades', label: 'Diário e notas', description: 'Avaliações, lançamento de notas e médias', permission: 'school:manage_grades' },
   { href: '/school/attendance', label: 'Chamada e frequência', description: 'Presenças, faltas, atrasos e alertas', permission: 'school:manage_attendance' },
+  {
+    href: '/school/occurrences',
+    label: 'Ocorrências e disciplina',
+    description: 'Registro disciplinar, plano de ação e visibilidade para famílias',
+    permission: 'school:manage_attendance',
+  },
   { href: '/school/teachers', label: 'Professores', description: 'Corpo docente e disciplinas que lecionam', permission: 'school:view_academic' },
   { href: '/school/subjects', label: 'Disciplinas', description: 'Componentes curriculares da escola', permission: 'school:view_academic' },
   { href: '/school/years', label: 'Anos letivos', description: 'Calendário e ano letivo vigente', permission: 'school:view_academic' },

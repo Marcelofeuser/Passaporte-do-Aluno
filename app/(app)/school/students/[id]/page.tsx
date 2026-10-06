@@ -15,6 +15,7 @@ import { ActionForm, ConfirmSubmit } from '@/components/school/action-form'
 import { AddressFields, BackLink, FileField, Textarea } from '@/components/school/form-fields'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
 import { Field, Input, Select } from '@/components/ui/field'
+import { getStudentBehaviorSummary, listStudentOccurrences } from '@/lib/occurrence-queries'
 import { UUID_RE } from '@/lib/school-action'
 import { formatBytes, formatDate, requireSchoolPage } from '@/lib/school-page'
 import {
@@ -26,7 +27,16 @@ import {
   listClasses,
 } from '@/lib/school-queries'
 import { fileUrl } from '@/lib/storage'
-import { DOCUMENT_KINDS, ENROLLMENT_STATUS, RELATIONSHIPS, SEX_OPTIONS, SHIFTS } from '@/lib/validation'
+import {
+  DOCUMENT_KINDS,
+  ENROLLMENT_STATUS,
+  OCCURRENCE_SEVERITY,
+  OCCURRENCE_STATUS,
+  OCCURRENCE_VISIBILITY,
+  RELATIONSHIPS,
+  SEX_OPTIONS,
+  SHIFTS,
+} from '@/lib/validation'
 
 export const metadata: Metadata = { title: 'Ficha do aluno' }
 
@@ -38,11 +48,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const s = await getStudent(schoolId, id)
   if (!s) notFound()
   const currentYear = await getCurrentYear(schoolId)
-  const [parents, enrollments, documents, classes] = await Promise.all([
+  const [parents, enrollments, documents, classes, behaviorSummary, behaviorTimeline] = await Promise.all([
     getStudentParents(schoolId, id),
     getStudentEnrollments(schoolId, id),
     getStudentDocuments(schoolId, id),
     currentYear ? listClasses(schoolId, currentYear.id) : Promise.resolve([]),
+    getStudentBehaviorSummary(schoolId, id),
+    listStudentOccurrences(schoolId, id, 25),
   ])
   const active = enrollments.find((e) => e.status === 'ACTIVE')
   const displayName = s.socialName ?? s.fullName
@@ -69,6 +81,50 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </p>
         </div>
       </header>
+
+      <Card>
+        <CardHeader title="Comportamento e disciplina" description="Resumo mensal/anual e histórico de ocorrências do aluno." />
+        <dl className="grid grid-cols-2 gap-4 px-4 pb-4 sm:grid-cols-4">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total no mês</dt>
+            <dd className="text-2xl font-bold tabular-nums">{behaviorSummary.monthTotal}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total no ano</dt>
+            <dd className="text-2xl font-bold tabular-nums">{behaviorSummary.yearTotal}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Graves (mês)</dt>
+            <dd className="text-2xl font-bold tabular-nums">{behaviorSummary.month.GRAVE}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Graves (ano)</dt>
+            <dd className="text-2xl font-bold tabular-nums">{behaviorSummary.year.GRAVE}</dd>
+          </div>
+        </dl>
+        {behaviorTimeline.length === 0 ? (
+          <EmptyState title="Sem ocorrências registradas" description="Não há registros disciplinares para este aluno." />
+        ) : (
+          <ul className="divide-y divide-border border-t border-border">
+            {behaviorTimeline.map((o) => (
+              <li key={o.id} className="px-4 py-3">
+                <p className="font-semibold">{o.typeName}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatDate(o.occurredAt)} · {OCCURRENCE_SEVERITY[o.severity as keyof typeof OCCURRENCE_SEVERITY]} ·{' '}
+                  {OCCURRENCE_STATUS[o.status as keyof typeof OCCURRENCE_STATUS]} ·{' '}
+                  {OCCURRENCE_VISIBILITY[o.visibility as keyof typeof OCCURRENCE_VISIBILITY]}
+                </p>
+                <p className="mt-1 text-sm">{o.description}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="border-t border-border px-4 py-3">
+          <Link href={`/school/occurrences?studentId=${id}`} className="text-sm font-semibold text-primary hover:underline">
+            Gerenciar ocorrências deste aluno
+          </Link>
+        </div>
+      </Card>
 
       {/* Matrícula */}
       <Card>
