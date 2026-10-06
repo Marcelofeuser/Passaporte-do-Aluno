@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useRef } from 'react'
+import { startTransition, useActionState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { FormMessage } from '@/components/ui/field'
 import { cn } from '@/lib/utils'
@@ -39,7 +39,17 @@ export function ActionForm({
   const errors = Object.entries(state.fieldErrors ?? {})
 
   return (
-    <form ref={ref} action={formAction} className={cn('flex flex-col gap-4', className)}>
+    <form
+      ref={ref}
+      // Submitting via onSubmit (instead of the `action` prop) prevents React 19 from auto-resetting
+      // the form, so typed values survive a validation error. Reset happens only on success (effect above).
+      onSubmit={(e) => {
+        e.preventDefault()
+        const formData = new FormData(e.currentTarget)
+        startTransition(() => formAction(formData))
+      }}
+      className={cn('flex flex-col gap-4', className)}
+    >
       {children}
       {errors.length > 0 ? (
         <div role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
