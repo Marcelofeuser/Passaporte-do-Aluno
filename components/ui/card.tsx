@@ -1,0 +1,67 @@
+import { cn } from '@/lib/utils'
+
+export function Card({ className, ...props }: React.ComponentProps<'section'>) {
+  return (
+    <section
+      className={cn('rounded-xl border border-border bg-card text-card-foreground', className)}
+      {...props}
+    />
+  )
+}
+
+export function CardHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description?: string
+  action?: React.ReactNode
+}) {
+  return (
+    <header className="flex items-start justify-between gap-3 border-b border-border p-4">
+      <div className="flex flex-col gap-0.5">
+        <h2 className="text-base font-bold text-balance">{title}</h2>
+        {description ? (
+          <p className="text-sm leading-relaxed text-muted-foreground text-pretty">{description}</p>
+        ) : null}
+      </div>
+      {action}
+    </header>
+  )
+}
+
+export function EmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
+      <p className="font-semibold">{title}</p>
+      <p className="max-w-sm text-sm leading-relaxed text-muted-foreground text-pretty">
+        {description}
+      </p>
+    </div>
+  )
+}
+
+export function RoleStamp({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex -rotate-3 items-center rounded-md border-2 border-dashed border-accent px-2 py-0.5 font-mono text-xs font-bold tracking-wider text-accent uppercase',
+        className,
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
+export function PageTitle({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <h1 className="text-2xl font-extrabold tracking-tight text-balance">{title}</h1>
+      {description ? (
+        <p className="leading-relaxed text-muted-foreground text-pretty">{description}</p>
+      ) : null}
+    </div>
+  )
+}
