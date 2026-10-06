@@ -92,6 +92,8 @@ export const school = pgTable('school', {
   ...address(),
   logoPathname: text('logo_pathname'),
   passingGrade: numeric('passing_grade', { precision: 4, scale: 2, mode: 'number' }).notNull().default(6),
+  minAttendance: integer('min_attendance').notNull().default(75),
+  lateAlertThreshold: integer('late_alert_threshold').notNull().default(3),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -290,6 +292,45 @@ export const scoreChange = pgTable('score_change', {
   scoreId: uuid('score_id').notNull(),
   oldScore: score('old_score'),
   newScore: score('new_score'),
+  reason: text('reason').notNull(),
+  changedBy: text('changed_by').notNull(),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+})
+
+export const attendanceSession = pgTable('attendance_session', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  classSubjectId: uuid('class_subject_id').notNull(),
+  classId: uuid('class_id').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  teacherId: uuid('teacher_id'),
+  heldOn: date('held_on').notNull(),
+  lessons: integer('lessons').notNull().default(1),
+  term: integer('term').notNull().default(1),
+  content: text('content'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+export const attendanceRecord = pgTable('attendance_record', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  sessionId: uuid('session_id').notNull(),
+  studentId: uuid('student_id').notNull(),
+  enrollmentId: uuid('enrollment_id').notNull(),
+  status: text('status').notNull(),
+  updatedBy: text('updated_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+})
+
+export const attendanceChange = pgTable('attendance_change', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  recordId: uuid('record_id').notNull(),
+  oldStatus: text('old_status').notNull(),
+  newStatus: text('new_status').notNull(),
   reason: text('reason').notNull(),
   changedBy: text('changed_by').notNull(),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
