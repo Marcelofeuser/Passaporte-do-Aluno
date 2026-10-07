@@ -104,7 +104,7 @@ export default async function FamilyPage({
   const occurrences = entries.filter((e) => e.status !== 'PRESENT')
   const name = selected.socialName || selected.fullName
   const href = (q: { student?: string; period?: string }) =>
-    `/family?${new URLSearchParams({ student: q.student ?? selected.id, period: q.period ?? period })}`
+    `/family/acompanhamento?${new URLSearchParams({ student: q.student ?? selected.id, period: q.period ?? period })}`
 
   return (
     <>
