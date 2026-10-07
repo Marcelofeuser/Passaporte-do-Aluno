@@ -13,9 +13,12 @@ export function navFor(role: Role | null | undefined, superAdmin: boolean): NavI
     items.push({ href: '/school', label: 'Escola', icon: 'school' })
   }
   if (can(role, 'family:view')) {
-    items.push({ href: '/family', label: role === 'STUDENT' ? 'Meu boletim' : 'Meus filhos', icon: 'family' })
+    items.push({ href: '/family', label: role === 'STUDENT' ? 'Meu painel' : 'Painel da família', icon: 'family' })
     items.push({ href: '/family/library', label: 'Biblioteca', icon: 'library' })
     items.push({ href: '/family/agenda', label: 'Agenda', icon: 'calendar' })
+  }
+  if (can(role, 'school:view_communication')) {
+    items.push({ href: '/school/communication', label: 'Comunicação', icon: 'bell' })
   }
   if (superAdmin || can(role, 'school:view_audit')) {
     items.push({ href: '/audit', label: 'Auditoria', icon: 'audit' })
@@ -42,6 +45,7 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/library', label: 'Biblioteca', description: 'Acervo, exemplares, empréstimos e devoluções', permission: 'school:manage_library' },
   { href: '/school/calendar', label: 'Calendário', description: 'Eventos, dias letivos e comunicação escolar', permission: 'school:view_calendar' },
   { href: '/school/appointments', label: 'Atendimentos', description: 'Horários disponíveis para famílias', permission: 'school:manage_appointments' },
+  { href: '/school/communication', label: 'Comunicação', description: 'Mural de avisos para a escola e turmas', permission: 'school:view_communication' },
   { href: '/school/teachers', label: 'Professores', description: 'Corpo docente e disciplinas que lecionam', permission: 'school:view_academic' },
   { href: '/school/subjects', label: 'Disciplinas', description: 'Componentes curriculares da escola', permission: 'school:view_academic' },
   { href: '/school/years', label: 'Anos letivos', description: 'Calendário e ano letivo vigente', permission: 'school:view_academic' },
