@@ -157,12 +157,21 @@ export default async function FamilyPage({
                 {subjects.map((s) => {
                   const t = bySubject.get(s.id) ?? { given: 0, absent: 0, late: 0, earlyLeave: 0 }
                   const allowed = allowedAbsences(s.workloadHours, settings.minAttendance)
-          <span className={list.includes('BELOW_MIN') ? 'text-destructive' : 'text-accent-foreground'}>
-            {list.map((k) => ALERT_LABEL[k]).join(' · ')}
-          </span>
-        ) : (
-          <span className="text-primary">Regular</span>
-        )}
+                  const list = alertsFor(t, { ...settings, allowed })
+                  return (
+                    <tr key={s.id}>
+                      <th scope="row" className="px-4 py-2 text-left font-medium">{s.subjectName}</th>
+                      <td className="px-4 py-2 text-right tabular-nums">{t.absent}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{allowed ?? '—'}</td>
+                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{formatRate(attendanceRate(t))}</td>
+                      <td className="px-4 py-2 text-xs font-semibold">
+                        {list.length ? (
+                          <span className={list.includes('BELOW_MIN') ? 'text-destructive' : 'text-accent-foreground'}>
+                            {list.map((k) => ALERT_LABEL[k]).join(' · ')}
+                          </span>
+                        ) : (
+                          <span className="text-primary">Regular</span>
+                        )}
                       </td>
                     </tr>
                   )
@@ -223,37 +232,21 @@ export default async function FamilyPage({
             {report.map((s) => {
               const r = computeResult(s.items, passingGrade)
               return (
-                <li key={s.id} className="flex local scope=" col" className="px-4 py-2 font-semibold">{label}</th>
-                  <th scope="col" className="px-4 py-2 text-right font-semibold">Frequência</th>
-                  <th scope="col" className="px-4 py-2 font-semibold">Situação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {subjects.map((s) => {
-                  const t = bySubject.get(s.id) ?? { given: 0, absent: 0, late: 0, earlyLeave: 0 }
-                  const allowed = allowedAbsences(s.workloadHours, settings.minAttendance)
-                  const list = alertsFor(t, { ...settings, allowed })
-                  return (
-                    <tr key={s.id}>
-                      <th scope="row" className="px-4 py-2 text-left font-medium">{s.subjectName}</th>
-                      <td className="px-4 py-2 text-right tabular-nums">{t.absent}</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{allowed ?? '—'}</td>
-                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{formatRate(attendanceRate(t))}</td>
-                      <td className="px-4 py-2 text-xs font-semibold">
-                        {list.length ? (
-                          <span className={list.includes('BELOW_MIN') ? 'text-destructive' : 'text-accent-foreground'}>
-                            {list.map((k) => ALERT_LABEL[k]).join(' · ')}
-                          </span>
-                        ) : (
-                          <span className="text-primary">Regular</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                <li key={s.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="font-semibold">{s.subjectName}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {s.items.filter((i) => i.score !== null).length} de {s.items.length} avaliação(ões) com nota
+                    </span>
+                  </div>
+                  <span className="text-lg font-bold tabular-nums">{formatScore(r.final)}</span>
+                  <span className={cn('w-24 text-right text-sm font-semibold', STATUS_TONE[r.status])}>
+                    {GRADE_STATUS_LABEL[r.status]}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </Card>
     </>
