@@ -1,37 +1,29 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { ArrowRight, BookOpen, CalendarDays, ClipboardList, GraduationCap } from 'lucide-react'
+import { buttonClasses } from '@/components/ui/button'
+import { ActionForm } from '@/components/school/action-form'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
+import { calendarDateTime } from '@/lib/calendar'
+import { listCalendarEvents } from '@/lib/calendar-queries'
+import { attendanceRate, formatRate, sumTotals, todayISO } from '@/lib/attendance'
 import {
-  ALERT_LABEL,
-  alertsFor,
-  allowedAbsences,
-  ATTENDANCE_STATUS,
-  attendanceRate,
-  formatRate,
-  isPeriod,
-  PERIODS,
-  periodRange,
-  sumTotals,
-  todayISO,
-  type Period,
-} from '@/lib/attendance'
-import {
-  getAttendanceEntries,
   getAttendanceSettings,
   getAttendanceTotals,
   getClassSubjects,
   getCurrentEnrollments,
   getFamilyStudents,
-  groupTotals,
 } from '@/lib/attendance-queries'
 import { getPassingGrade, getStudentReport } from '@/lib/grade-queries'
 import { computeResult, formatScore, GRADE_STATUS_LABEL } from '@/lib/grades'
-import { formatOccurred, OCCURRENCE_SEVERITY, OCCURRENCE_STATUS } from '@/lib/occurrences'
+import { getLibraryRules, listLoans } from '@/lib/library-queries'
+import { listAnnouncementsForFamily, markAnnouncementReadForm, PRIORITY_LABEL } from '@/app/actions/communication'
 import { listStudentOccurrences, occurrenceSummary } from '@/lib/occurrence-queries'
-import { cn } from '@/lib/utils'
+import { formatOccurred, OCCURRENCE_SEVERITY } from '@/lib/occurrences'
 import { formatDate, requireSchoolPage } from '@/lib/school-page'
+import { cn } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'Acompanhamento escolar' }
+export const metadata: Metadata = { title: 'Painel da família' }
 
 const STATUS_TONE: Record<string, string> = {
   APPROVED: 'text-primary',
@@ -40,10 +32,10 @@ const STATUS_TONE: Record<string, string> = {
   PENDING: 'text-muted-foreground',
 }
 
-export default async function FamilyPage({
+export default async function FamilyDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ student?: string; period?: string }>
+  searchParams: Promise<{ student?: string }>
 }) {
   const { ctx, schoolId, role } = await requireSchoolPage('family:view')
   const sp = await searchParams
@@ -53,7 +45,7 @@ export default async function FamilyPage({
   if (students.length === 0) {
     return (
       <>
-        <PageTitle title={isStudent ? 'Meu boletim' : 'Meus filhos'} />
+        <PageTitle title={isStudent ? 'Meu painel' : 'Painel da família'} />
         <Card>
           <EmptyState
             title="Nenhum aluno vinculado"
@@ -70,7 +62,6 @@ export default async function FamilyPage({
 
   // O aluno escolhido só vale se estiver na lista autorizada; senão usa o primeiro.
   const selected = students.find((s) => s.id === sp.student) ?? students[0]
-  const period: Period = isPeriod(sp.period) ? sp.period : 'month'
   const today = todayISO()
 
   const [[enr], settings, passingGrade] = await Promise.all([
@@ -79,38 +70,40 @@ export default async function FamilyPage({
     getPassingGrade(schoolId),
   ])
 
-  const yearFrom = enr?.startsOn ?? `${today.slice(0, 4)}-01-01`
-  const yearTo = enr?.endsOn ?? today
-  const range = periodRange(period, today)
-  if (period === 'year') range.from = yearFrom
-
   const classId = enr?.classId
-  const monthFrom = `${today.slice(0, 7)}-01`
-  const [subjects, yearTotals, entries, report, yearDisc, monthDisc, discipline] = classId
+  const eventsFrom = new Date()
+  const eventsTo = new Date(Date.now() + 30 * 86_400_000)
+
+  const [subjects, yearTotals, events, report, yearDisc, loans] = classId
     ? await Promise.all([
         getClassSubjects(schoolId, [classId]),
-        getAttendanceTotals(schoolId, { studentIds: [selected.id], classId, from: yearFrom, to: yearTo }),
-        getAttendanceEntries(schoolId, [selected.id], range.from, range.to),
+        getAttendanceTotals(schoolId, { studentIds: [selected.id], classId, from: enr?.startsOn ?? today, to: enr?.endsOn ?? today }),
+        listCalendarEvents(schoolId, role, eventsFrom, eventsTo),
         getStudentReport(schoolId, selected.id, classId),
-        occurrenceSummary(schoolId, selected.id, yearFrom, yearTo, true),
-        occurrenceSummary(schoolId, selected.id, monthFrom, today, true),
-        listStudentOccurrences(schoolId, selected.id, { visibleOnly: true, limit: 20 }),
+        occurrenceSummary(schoolId, selected.id, enr?.startsOn ?? today, enr?.endsOn ?? today, true),
+        listLoans(schoolId, { filter: 'active', studentIds: [selected.id], today, limit: 5 }),
       ])
-    : [[], [], [], [], { total: 0, mild: 0, moderate: 0, severe: 0 }, { total: 0, mild: 0, moderate: 0, severe: 0 }, []]
+    : [[], [], [], [], { total: 0, mild: 0, moderate: 0, severe: 0 }, []]
 
-  const bySubject = groupTotals(yearTotals, (t) => t.classSubjectId)
-  const overall = sumTotals([...bySubject.values()])
-  const periodTotals = getPeriodSummary(entries)
-  const occurrences = entries.filter((e) => e.status !== 'PRESENT')
+  const overall = sumTotals(yearTotals)
   const name = selected.socialName || selected.fullName
-  const href = (q: { student?: string; period?: string }) =>
-    `/family?${new URLSearchParams({ student: q.student ?? selected.id, period: q.period ?? period })}`
+  const detailHref = `/family/acompanhamento${sp.student ? `?student=${selected.id}` : ''}`
+  const nextEvents = events.slice(0, 3)
+  const recentOccurrences = classId
+    ? await listStudentOccurrences(schoolId, selected.id, { visibleOnly: true, limit: 5 })
+    : []
+  const libraryRules = await getLibraryRules(schoolId)
+  const announcements = await listAnnouncementsForFamily(schoolId, isStudent ? 'STUDENT' : 'PARENT', ctx.user.id, ctx.user.email, 5)
 
   return (
     <>
       <PageTitle
-        title={isStudent ? 'Meu boletim' : name}
-        description={enr ? `${enr.className} · ${enr.grade}` : 'Sem matrícula ativa no ano letivo vigente.'}
+        title={isStudent ? 'Meu painel' : 'Painel da família'}
+        description={
+          enr
+            ? `${name} · ${enr.className} · ${enr.grade}`
+            : `${name} · sem matrícula ativa no ano letivo vigente.`
+        }
       />
 
       {students.length > 1 ? (
@@ -118,7 +111,7 @@ export default async function FamilyPage({
           {students.map((s) => (
             <Link
               key={s.id}
-              href={href({ student: s.id })}
+              href={`/family?student=${s.id}`}
               aria-current={s.id === selected.id ? 'page' : undefined}
               className="rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted aria-[current=page]:border-primary aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground"
             >
@@ -128,13 +121,19 @@ export default async function FamilyPage({
         </nav>
       ) : null}
 
+      {/* Frequência rápida */}
       <Card>
         <CardHeader
-          title="Frequência no ano"
+          title="Frequência"
           description={`Mínimo exigido: ${settings.minAttendance}% em cada disciplina.`}
+          action={
+            <Link href={detailHref} className={buttonClasses('outline', 'sm')}>
+              Ver detalhes <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          }
         />
         <dl className="grid grid-cols-2 gap-4 px-4 pb-4 sm:grid-cols-4">
-          <Stat label="Frequência geral" value={formatRate(attendanceRate(overall))} strong />
+          <Stat label="Frequência no ano" value={formatRate(attendanceRate(overall))} strong />
           <Stat label="Faltas (aulas)" value={String(overall.absent)} />
           <Stat label="Atrasos" value={String(overall.late)} />
           <Stat label="Saídas antecipadas" value={String(overall.earlyLeave)} />
@@ -148,30 +147,22 @@ export default async function FamilyPage({
                 <tr>
                   <th scope="col" className="px-4 py-2 font-semibold">Disciplina</th>
                   <th scope="col" className="px-4 py-2 text-right font-semibold">Faltas</th>
-                  <th scope="col" className="px-4 py-2 text-right font-semibold">Limite</th>
                   <th scope="col" className="px-4 py-2 text-right font-semibold">Frequência</th>
                   <th scope="col" className="px-4 py-2 font-semibold">Situação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {subjects.map((s) => {
-                  const t = bySubject.get(s.id) ?? { given: 0, absent: 0, late: 0, earlyLeave: 0 }
-                  const allowed = allowedAbsences(s.workloadHours, settings.minAttendance)
-                  const list = alertsFor(t, { ...settings, allowed })
+                  const t = yearTotals.find((x) => x.classSubjectId === s.id) ?? { given: 0, absent: 0, late: 0, earlyLeave: 0 }
                   return (
                     <tr key={s.id}>
                       <th scope="row" className="px-4 py-2 text-left font-medium">{s.subjectName}</th>
                       <td className="px-4 py-2 text-right tabular-nums">{t.absent}</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{allowed ?? '—'}</td>
                       <td className="px-4 py-2 text-right font-semibold tabular-nums">{formatRate(attendanceRate(t))}</td>
                       <td className="px-4 py-2 text-xs font-semibold">
-                        {list.length ? (
-                          <span className={list.includes('BELOW_MIN') ? 'text-destructive' : 'text-accent-foreground'}>
-                            {list.map((k) => ALERT_LABEL[k]).join(' · ')}
-                          </span>
-                        ) : (
-                          <span className="text-primary">Regular</span>
-                        )}
+                        <span className={cn(t.absent > 0 ? 'text-accent-foreground' : 'text-primary')}>
+                          {t.absent > 0 ? 'Atenção' : 'Regular'}
+                        </span>
                       </td>
                     </tr>
                   )
@@ -182,49 +173,17 @@ export default async function FamilyPage({
         )}
       </Card>
 
+      {/* Notas + boletim resumido */}
       <Card>
-        <CardHeader title="Faltas e atrasos" description={`${formatDate(range.from)} a ${formatDate(range.to)}`} />
-        <nav aria-label="Período" className="flex flex-wrap gap-1.5 px-4 pb-3">
-          {(Object.keys(PERIODS) as Period[]).map((p) => (
-            <Link
-              key={p}
-              href={href({ period: p })}
-              aria-current={p === period ? 'page' : undefined}
-              className="rounded-md px-3 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted aria-[current=page]:bg-secondary aria-[current=page]:text-secondary-foreground"
-            >
-              {PERIODS[p]}
+        <CardHeader
+          title="Notas"
+          description={`Média para aprovação: ${formatScore(passingGrade)}`}
+          action={
+            <Link href={detailHref} className={buttonClasses('outline', 'sm')}>
+              Ver boletim <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
-          ))}
-        </nav>
-        <p className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
-          {periodTotals.days} dia(s) com aula · {periodTotals.absent} falta(s) · {periodTotals.late} atraso(s) ·{' '}
-          {periodTotals.earlyLeave} saída(s) antecipada(s)
-        </p>
-        {occurrences.length === 0 ? (
-          <EmptyState title="Nenhuma falta ou atraso" description="Sem faltas, atrasos ou saídas antecipadas no período." />
-        ) : (
-          <ul className="divide-y divide-border border-t border-border">
-            {occurrences.map((e) => (
-              <li key={e.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                <span className="w-24 shrink-0 tabular-nums text-muted-foreground">{formatDate(e.heldOn)}</span>
-                <span className="flex-1 font-medium">{e.subjectName}</span>
-                <span
-                  className={cn(
-                    'rounded-full px-2 py-0.5 text-xs font-semibold',
-                    e.status === 'ABSENT' ? 'bg-destructive/10 text-destructive' : 'bg-accent text-accent-foreground',
-                  )}
-                >
-                  {ATTENDANCE_STATUS[e.status as keyof typeof ATTENDANCE_STATUS]}
-                  {e.status === 'ABSENT' && e.lessons > 1 ? ` (${e.lessons} aulas)` : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card>
-        <CardHeader title="Notas" description={`Média para aprovação: ${formatScore(passingGrade)}`} />
+          }
+        />
         {report.length === 0 ? (
           <EmptyState title="Sem notas" description="Ainda não há disciplinas com avaliações." />
         ) : (
@@ -249,17 +208,166 @@ export default async function FamilyPage({
           </ul>
         )}
       </Card>
+
+      {/* Agenda */}
+      <Card>
+        <CardHeader
+          title="Agenda"
+          description="Próximos eventos e comunicados para a família."
+          action={
+            <Link href="/family/agenda" className={buttonClasses('outline', 'sm')}>
+              Agenda completa <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          }
+        />
+        {nextEvents.length === 0 ? (
+          <EmptyState title="Agenda vazia" description="Não há eventos publicados para os próximos dias." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {nextEvents.map((event) => (
+              <li key={event.id} className="px-4 py-3">
+                <strong>{event.title}</strong>
+                <p className="text-sm text-muted-foreground">
+                  {event.typeName} · {calendarDateTime(event.startsAt)}
+                  {event.location ? ` · ${event.location}` : ''}
+                </p>
+                {event.description ? <p className="mt-1 text-sm">{event.description}</p> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* Mural da escola (Fase 6) */}
+      <Card>
+        <CardHeader title="Mural da escola" description="Avisos da escola e da turma." />
+        {announcements.length === 0 ? (
+          <EmptyState title="Nenhum aviso" description="Os comunicados da escola aparecem aqui." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {announcements.map((item) => (
+              <li key={item.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold">{item.title}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      item.priority === 'URGENT'
+                        ? 'bg-destructive/10 text-destructive'
+                        : item.priority === 'IMPORTANT'
+                          ? 'bg-accent text-accent-foreground'
+                          : 'bg-secondary text-secondary-foreground'
+                    }`}
+                  >
+                    {PRIORITY_LABEL[item.priority as keyof typeof PRIORITY_LABEL] ?? item.priority}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm">{item.content}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Por {item.authorName ?? 'Administração'} · {formatDate(item.createdAt)}
+                  {item.classId ? ' · Turma' : ''}
+                </p>
+                {item.readAt ? (
+                  <p className="mt-1 text-xs font-semibold text-primary">Leitura confirmada</p>
+                ) : (
+                  <ActionForm action={markAnnouncementReadForm} submitLabel="Confirmar leitura" className="mt-2 p-0">
+                    <input type="hidden" name="announcementId" value={item.id} />
+                  </ActionForm>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* Atividades: ocorrências visíveis à família */}
+      <Card>
+        <CardHeader
+          title="Atividades e ocorrências"
+          description={`Registro do ano letivo${yearDisc.total ? ` · ${yearDisc.total} ocorrência(s)` : ''}`}
+        />
+        {recentOccurrences.length === 0 ? (
+          <EmptyState title="Nenhuma ocorrência" description="Sem registros disciplinares visíveis à família." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {recentOccurrences.map((o) => (
+              <li key={o.id} className="flex items-start gap-3 px-4 py-3">
+                <span
+                  className={cn(
+                    'mt-0.5 size-2 shrink-0 rounded-full',
+                    o.isPositive ? 'bg-primary' : o.severity === 'SEVERE' ? 'bg-destructive' : 'bg-accent',
+                  )}
+                  aria-hidden="true"
+                />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-semibold">{o.typeName}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatOccurred(o.occurredOn, o.occurredAt)} ·{' '}
+                    {OCCURRENCE_SEVERITY[o.severity as keyof typeof OCCURRENCE_SEVERITY]}
+                  </span>
+                  {o.description ? <p className="mt-1 text-sm">{o.description}</p> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* Biblioteca */}
+      <Card>
+        <CardHeader
+          title="Biblioteca"
+          description={libraryRules.maxLoans ? `Limite de ${libraryRules.maxLoans} empréstimo(s) por aluno.` : undefined}
+          action={
+            <Link href="/family/library" className={buttonClasses('outline', 'sm')}>
+              Ver biblioteca <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          }
+        />
+        {loans.length === 0 ? (
+          <EmptyState
+            title="Nenhum empréstimo ativo"
+            description="Quando houver livros emprestados, aparecem aqui com a data de devolução."
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {loans.map((l) => (
+              <li key={l.id} className="flex items-center gap-3 px-4 py-3">
+                <BookOpen className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-semibold">{l.title}</span>
+                  <span className="text-sm text-muted-foreground">Devolução: {formatDate(l.dueOn)}</span>
+                  {l.dueOn < today ? <span className="text-sm font-semibold text-destructive">Em atraso</span> : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* Atalhos rápidos */}
+      <Card>
+        <CardHeader title="Atalhos" />
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+          <ShortcutLink href="/family/agenda" label="Agenda" icon={CalendarDays} />
+          <ShortcutLink href="/family/appointments" label="Atendimentos" icon={ClipboardList} />
+          <ShortcutLink href="/family/library" label="Biblioteca" icon={BookOpen} />
+          <ShortcutLink href="/notifications" label="Avisos" icon={GraduationCap} />
+        </div>
+      </Card>
     </>
   )
 }
 
-function getPeriodSummary(entries: { heldOn: string; status: string; lessons: number }[]) {
-  return {
-    days: new Set(entries.map((e) => e.heldOn)).size,
-    absent: entries.filter((e) => e.status === 'ABSENT').reduce((n, e) => n + e.lessons, 0),
-    late: entries.filter((e) => e.status === 'LATE').length,
-    earlyLeave: entries.filter((e) => e.status === 'EARLY_LEAVE').length,
-  }
+function ShortcutLink({ href, label, icon: Icon }: { href: string; label: string; icon: typeof CalendarDays }) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-20 flex-col justify-between gap-2 rounded-xl border border-border bg-card p-3 text-sm font-semibold hover:bg-muted"
+    >
+      <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
+      {label}
+    </Link>
+  )
 }
 
 function Stat({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
