@@ -238,6 +238,47 @@ export default async function FamilyDashboardPage({
         )}
       </Card>
 
+      {/* Mural da escola (Fase 6) */}
+      <Card>
+        <CardHeader title="Mural da escola" description="Avisos da escola e da turma." />
+        {announcements.length === 0 ? (
+          <EmptyState title="Nenhum aviso" description="Os comunicados da escola aparecem aqui." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {announcements.map((item) => (
+              <li key={item.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold">{item.title}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      item.priority === 'URGENT'
+                        ? 'bg-destructive/10 text-destructive'
+                        : item.priority === 'IMPORTANT'
+                          ? 'bg-accent text-accent-foreground'
+                          : 'bg-secondary text-secondary-foreground'
+                    }`}
+                  >
+                    {PRIORITY_LABEL[item.priority as keyof typeof PRIORITY_LABEL] ?? item.priority}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm">{item.content}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Por {item.authorName ?? 'Administração'} · {formatDate(item.createdAt)}
+                  {item.classId ? ' · Turma' : ''}
+                </p>
+                {item.readAt ? (
+                  <p className="mt-1 text-xs font-semibold text-primary">Leitura confirmada</p>
+                ) : (
+                  <ActionForm action={markAnnouncementReadForm} submitLabel="Confirmar leitura" className="mt-2 p-0">
+                    <input type="hidden" name="announcementId" value={item.id} />
+                  </ActionForm>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       {/* Atividades: ocorrências visíveis à família */}
       <Card>
         <CardHeader
@@ -297,47 +338,6 @@ export default async function FamilyDashboardPage({
                   <span className="text-sm text-muted-foreground">Devolução: {formatDate(l.dueOn)}</span>
                   {l.dueOn < today ? <span className="text-sm font-semibold text-destructive">Em atraso</span> : null}
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      {/* Mural da escola (Fase 6) */}
-      <Card>
-        <CardHeader title="Mural da escola" description="Avisos da escola e da turma." />
-        {announcements.length === 0 ? (
-          <EmptyState title="Nenhum aviso" description="Os comunicados da escola aparecem aqui." />
-        ) : (
-          <ul className="divide-y divide-border">
-            {announcements.map((item) => (
-              <li key={item.id} className="px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold">{item.title}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                      item.priority === 'URGENT'
-                        ? 'bg-destructive/10 text-destructive'
-                        : item.priority === 'IMPORTANT'
-                          ? 'bg-accent text-accent-foreground'
-                          : 'bg-secondary text-secondary-foreground'
-                    }`}
-                  >
-                    {PRIORITY_LABEL[item.priority as keyof typeof PRIORITY_LABEL] ?? item.priority}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm">{item.content}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Por {item.authorName ?? 'Administração'} · {formatDate(item.createdAt)}
-                  {item.classId ? ' · Turma' : ''}
-                </p>
-                {item.readAt ? (
-                  <p className="mt-1 text-xs font-semibold text-primary">Leitura confirmada</p>
-                ) : (
-                  <ActionForm action={markAnnouncementReadForm} submitLabel="Confirmar leitura" className="mt-2 p-0">
-                    <input type="hidden" name="announcementId" value={item.id} />
-                  </ActionForm>
-                )}
               </li>
             ))}
           </ul>
