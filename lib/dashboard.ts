@@ -1,4 +1,4 @@
-import { and, eq, gte, isNull, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   academicYear,
@@ -74,7 +74,7 @@ export async function getSchoolDashboardMetrics(schoolId: string): Promise<Dashb
     ? (await db.select({ id: schoolClass.id }).from(schoolClass).where(eq(schoolClass.academicYearId, year.id))).map((r) => r.id)
     : []
   const attWhere = classIds.length
-    ? and(eq(attendanceRecord.schoolId, schoolId), gte(attendanceSession.classId, sql`'00000000-0000-0000-0000-000000000000'`), sql`${attendanceSession.classId} = any(${sql.raw(`array['${classIds.join("','")}']::uuid[]`)})`)
+    ? and(eq(attendanceRecord.schoolId, schoolId), inArray(attendanceSession.classId, classIds))
     : undefined
   const [yearAtt] = attWhere
     ? await db
