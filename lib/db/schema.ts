@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -212,6 +213,10 @@ export const student = pgTable('student', {
   phone: text('phone'),
   ...address(),
   notes: text('notes'),
+  /* Passaporte Educacional (Fase 10): token do QR (192 bits, único) e estado da carteirinha. */
+  passportToken: text('passport_token').unique(),
+  passportActive: boolean('passport_active').notNull().default(true),
+  passportUpdatedAt: timestamp('passport_updated_at', tz).notNull().defaultNow(),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -616,4 +621,46 @@ export const studentAttendance = pgTable('student_attendance', {
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
 })
 
+/* ---------- Documentos e Declarações Escolares (Fase 11) ---------- */
 
+export const DOCUMENT_TYPES = {
+  ENROLLMENT_DECLARATION: 'Declaração de matrícula',
+  ATTENDANCE_PROOF: 'Comprovante de frequência',
+  PARTIAL_TRANSCRIPT: 'Histórico parcial',
+} as const
+export type DocumentType = keyof typeof DOCUMENT_TYPES
+
+export const issuedDocument = pgTable(
+  'issued_document',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull(),
+    docType: text('doc_type').notNull(),
+    verificationCode: text('verification_code').notNull().unique(),
+    /** Snapshot dos dados no momento da emissão (não muda se os dados mudarem depois). */
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    issuedBy: text('issued_by'),
+    revokedAt: timestamp('revoked_at', tz),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  },
+  (t) => [
+    index('issued_document_school_time').on(t.schoolId, t.createdAt),
+    index('issued_document_student').on(t.studentId),
+  ],
+)
+
+/* ---------- Passaporte Educacional (Fase 10) ---------- */
+
+export const passportVerification = pgTable(
+  'passport_verification',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull(),
+    verifierUserId: text('verifier_user_id').notNull(),
+    status: text('status').notNull(), // 'VALID' | 'REVOKED'
+    occurredAt: timestamp('occurred_at', tz).notNull().defaultNow(),
+  },
+  (t) => [index('passport_verification_school_time').on(t.schoolId, t.occurredAt)],
+)
