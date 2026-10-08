@@ -20,7 +20,7 @@ export type DocumentLookup = {
 
 /**
  * Validação pública por código de autenticidade (sem sessão).
- * Não expõe dados sensíveis: só tipo, escola, data e emission via.
+ * Não expõe dados sensíveis: só tipo, escola, data e via de emissão.
  */
 export async function verifyDocumentByCode(code: string): Promise<DocumentLookup> {
   const clean = code.trim().toUpperCase()
