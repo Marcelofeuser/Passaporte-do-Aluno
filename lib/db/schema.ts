@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -212,6 +213,10 @@ export const student = pgTable('student', {
   phone: text('phone'),
   ...address(),
   notes: text('notes'),
+  /* Passaporte Educacional (Fase 10): token do QR (192 bits, único) e estado da carteirinha. */
+  passportToken: text('passport_token').unique(),
+  passportActive: boolean('passport_active').notNull().default(true),
+  passportUpdatedAt: timestamp('passport_updated_at', tz).notNull().defaultNow(),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', tz),
@@ -616,4 +621,17 @@ export const studentAttendance = pgTable('student_attendance', {
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
 })
 
+/* ---------- Passaporte Educacional (Fase 10) ---------- */
 
+export const passportVerification = pgTable(
+  'passport_verification',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull(),
+    verifierUserId: text('verifier_user_id').notNull(),
+    status: text('status').notNull(), // 'VALID' | 'REVOKED'
+    occurredAt: timestamp('occurred_at', tz).notNull().defaultNow(),
+  },
+  (t) => [index('passport_verification_school_time').on(t.schoolId, t.occurredAt)],
+)
