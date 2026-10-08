@@ -616,4 +616,47 @@ export const studentAttendance = pgTable('student_attendance', {
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
 })
 
+/* ---------- Comunicação e mural de avisos (Fase 6) ---------- */
 
+export const schoolAnnouncement = pgTable('school_announcement', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  classId: uuid('class_id'),
+  authorId: text('author_id').notNull(),
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  priority: text('priority').notNull().default('NORMAL'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const announcementRead = pgTable(
+  'announcement_read',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    announcementId: uuid('announcement_id').notNull(),
+    userId: text('user_id').notNull(),
+    readAt: timestamp('read_at', tz).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('announcement_read_uniq').on(t.announcementId, t.userId)],
+)
+
+/* ---------- Agenda escolar: eventos, provas e trabalhos (Fase 7) ---------- */
+
+export const schoolEvent = pgTable('school_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  classId: uuid('class_id'),
+  subjectId: uuid('subject_id'),
+  kind: text('kind').notNull().default('EVENT'), // EVENT | EXAM | ASSIGNMENT
+  title: text('title').notNull(),
+  description: text('description'),
+  startsAt: timestamp('starts_at', tz).notNull(),
+  location: text('location'),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
