@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { verifyDocumentByCode, type DocumentLookup } from '@/lib/documents'
+import type { DocumentLookup } from '@/lib/documents'
+import { verifyDocumentCodeAction as verifyDocumentByCode } from '@/app/actions/document-verify'
 
-/** Formulário público de validação: consulta o código e mostra o resultado, sem sessão. */
+/** Formulário público de validação: consulta o código via server action e mostra o resultado, sem sessão. */
 export function DocumentVerifyForm({ initialCode }: { initialCode?: string }) {
   const [code, setCode] = useState(initialCode ?? '')
   const [result, setResult] = useState<DocumentLookup | null>(null)
