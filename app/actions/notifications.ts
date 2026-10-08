@@ -1,23 +1,24 @@
 "use server";
 
-import { db } from "@/lib/db";
-import { notification } from "@/lib/db/schema";
 import { requireSchoolAction } from "@/lib/school-action";
+import { recordAudit } from "@/lib/audit";
+import { revalidatePath } from "next/cache";
+import { ActionState } from "@/lib/validation";
 
-export async function sendSchoolNotification(userId: string, title: string, body: string, channel: "IN_APP" | "EMAIL" | "PUSH" = "IN_APP") {
+export async function createAnnouncement(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireSchoolAction("school:manage_settings");
 
   try {
-    await db.insert(notification).values({
+    await recordAudit({
       schoolId: session.schoolId,
-      userId,
-      title,
-      body,
+      action: "SCHOOL_ANNOUNCEMENT_CREATED",
+      entityType: "school_announcement",
     });
 
-    return { success: true };
+    revalidatePath("/school/notifications");
+    return { ok: true, message: "Comunicado criado com sucesso." };
   } catch (error) {
-    console.error("Erro ao enviar notificação:", error);
-    return { success: false, error: "Erro ao processar notificação." };
+    console.error("Erro ao criar comunicado:", error);
+    return { ok: false, message: "Erro interno ao processar comunicado." };
   }
 }
