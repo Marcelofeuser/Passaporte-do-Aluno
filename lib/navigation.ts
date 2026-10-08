@@ -39,6 +39,7 @@ export type SchoolSection = {
 }
 
 export const SCHOOL_SECTIONS: SchoolSection[] = [
+  { href: '/school/dashboard', label: 'Dashboard', description: 'Visão executiva: alunos, frequência, notas e risco', permission: 'school:view_academic' },
   { href: '/school/students', label: 'Alunos', description: 'Cadastro, responsáveis, matrícula e documentos', permission: 'school:view_students' },
   { href: '/school/enrollments', label: 'Matrículas', description: 'Ingressos, rematrículas, contratos e situação documental', permission: 'school:view_students' },
   { href: '/school/classes', label: 'Turmas', description: 'Turmas por ano letivo, disciplinas e alunos', permission: 'school:view_academic' },
@@ -52,6 +53,7 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/passport', label: 'Passaporte', description: 'Carteirinha digital com QR Code de validação', permission: 'school:view_access' },
   { href: '/school/documents', label: 'Documentos', description: 'Declarações emitidas e códigos de autenticidade', permission: 'school:view_access' },
   { href: '/school/ai', label: 'Assistente Pedagógico', description: 'Análise de risco, médias por turma e resumos para reunião de pais', permission: 'school:view_academic' },
+  { href: '/school/reports', label: 'Relatórios', description: 'Exportações CSV e PDF para auditoria e prestação de contas', permission: 'school:view_academic' },
   { href: '/school/teachers', label: 'Professores', description: 'Corpo docente e disciplinas que lecionam', permission: 'school:view_academic' },
   { href: '/school/subjects', label: 'Disciplinas', description: 'Componentes curriculares da escola', permission: 'school:view_academic' },
   { href: '/school/years', label: 'Anos letivos', description: 'Calendário e ano letivo vigente', permission: 'school:view_academic' },
