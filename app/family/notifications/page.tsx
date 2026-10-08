@@ -1,16 +1,16 @@
-import { requireSchoolAuth } from "@/lib/auth/session";
+import { requireSchoolAction } from "@/lib/school-action";
 import { db } from "@/lib/db";
-import { notifications } from "@/lib/db/schema";
+import { notification } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export default async function FamilyNotificationsPage() {
-  const session = await requireSchoolAuth();
+  const session = await requireSchoolAction('school:manage_settings');
 
   const userNotifications = await db
     .select()
-    .from(notifications)
-    .where(eq(notifications.userId, session.userId))
-    .orderBy(desc(notifications.createdAt))
+    .from(notification)
+    .where(eq(notification.userId, session.userId))
+    .orderBy(desc(notification.createdAt))
     .limit(30);
 
   return (
@@ -36,7 +36,7 @@ export default async function FamilyNotificationsPage() {
                   {new Date(n.createdAt).toLocaleDateString("pt-BR")}
                 </span>
               </div>
-              <p className="text-muted-foreground">{n.message}</p>
+              <p className="text-muted-foreground">{n.body}</p>
             </div>
           ))
         )}
