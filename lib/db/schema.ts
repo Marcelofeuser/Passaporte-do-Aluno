@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -616,4 +617,61 @@ export const studentAttendance = pgTable('student_attendance', {
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
 })
 
+/* ---------- Portaria e controle de acesso (Fase 8) ---------- */
 
+export const ACCESS_METHODS = { NFC: 'NFC', FACIAL: 'FACIAL', MANUAL: 'MANUAL' } as const
+export type AccessMethod = keyof typeof ACCESS_METHODS
+
+export const ACCESS_TYPES = { ENTRY: 'ENTRADA', EXIT: 'SAIDA' } as const
+export type AccessType = keyof typeof ACCESS_TYPES
+
+export const accessDevice = pgTable('access_device', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  schoolId: uuid('school_id').notNull(),
+  name: text('name').notNull(),
+  deviceKeyHash: text('device_key_hash').notNull().unique(),
+  location: text('location'),
+  isActive: boolean('is_active').notNull().default(true),
+  lastSeenAt: timestamp('last_seen_at', tz),
+  createdBy: text('created_by'),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', tz),
+})
+
+export const studentCredential = pgTable(
+  'student_credential',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull().unique(),
+    nfcCardUid: text('nfc_card_uid'),
+    facialProfileId: text('facial_profile_id'),
+    isActive: boolean('is_active').notNull().default(true),
+    consentAt: timestamp('consent_at', tz),
+    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('student_credential_nfc_uniq').on(t.nfcCardUid),
+    uniqueIndex('student_credential_facial_uniq').on(t.facialProfileId),
+  ],
+)
+
+export const studentAccessLog = pgTable(
+  'student_access_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull(),
+    deviceId: uuid('device_id'),
+    method: text('method').notNull(),
+    type: text('type').notNull(),
+    occurredAt: timestamp('occurred_at', tz).notNull().defaultNow(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  },
+  (t) => [
+    index('student_access_log_school_time').on(t.schoolId, t.occurredAt),
+    index('student_access_log_student_time').on(t.studentId, t.occurredAt),
+  ],
+)
