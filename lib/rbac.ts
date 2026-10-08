@@ -1,79 +1,35 @@
-export const ROLES = [
-  'SUPER_ADMIN',
-  'SCHOOL_ADMIN',
-  'COORDINATOR',
-  'TEACHER',
-  'LIBRARIAN',
-  'PARENT',
-  'STUDENT',
-] as const
-
-export type Role = (typeof ROLES)[number]
-
-export const SCHOOL_ROLES = ROLES.filter((r) => r !== 'SUPER_ADMIN') as Exclude<
-  Role,
-  'SUPER_ADMIN'
->[]
-
-export const ROLE_LABELS: Record<Role, string> = {
-  SUPER_ADMIN: 'Super Admin',
-  SCHOOL_ADMIN: 'Administrador da escola',
-  COORDINATOR: 'Coordenador',
-  TEACHER: 'Professor',
-  LIBRARIAN: 'Bibliotecário(a)',
-  PARENT: 'Responsável',
-  STUDENT: 'Aluno',
-}
-
-const PERMISSIONS = {
+// Permissões por papel (RBAC). Papel da escola no vínculo ativo; SUPER_ADMIN é plataforma.
+export const PERMISSIONS = {
   'platform:manage_schools': ['SUPER_ADMIN'],
   'platform:view_audit': ['SUPER_ADMIN'],
-  'school:view_users': ['SCHOOL_ADMIN', 'COORDINATOR'],
-  'school:manage_users': ['SCHOOL_ADMIN', 'COORDINATOR'],
+
+  'school:view_users': ['SCHOOL_ADMIN'],
+  'school:manage_users': ['SCHOOL_ADMIN'],
   'school:view_audit': ['SCHOOL_ADMIN'],
   'school:manage_settings': ['SCHOOL_ADMIN'],
-  'school:view_academic': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
-  'school:manage_academic': ['SCHOOL_ADMIN', 'COORDINATOR'],
-  'school:view_students': ['SCHOOL_ADMIN', 'COORDINATOR'],
-  'school:manage_grades': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
-  'school:manage_all_grades': ['SCHOOL_ADMIN', 'COORDINATOR'],
+
+  'school:view_academic': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:manage_grades': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:manage_attendance': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
-  'school:manage_all_attendance': ['SCHOOL_ADMIN', 'COORDINATOR'],
-  'school:manage_library': ['SCHOOL_ADMIN', 'COORDINATOR', 'LIBRARIAN'],
-  'school:configure_library': ['SCHOOL_ADMIN', 'COORDINATOR'],
-  'school:manage_calendar': ['SCHOOL_ADMIN', 'COORDINATOR'],
-  'school:view_calendar': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER', 'LIBRARIAN'],
-  'school:manage_appointments': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
   'school:manage_discipline': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
-  'school:manage_all_discipline': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:view_calendar': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
+  'school:manage_calendar': ['SCHOOL_ADMIN', 'COORDINATOR'],
+
+  'school:view_students': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
+  'school:manage_students': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:manage_library': ['SCHOOL_ADMIN', 'COORDINATOR'],
+  'school:manage_appointments': ['SCHOOL_ADMIN', 'COORDINATOR'],
+
   'school:view_access': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'school:manage_access': ['SCHOOL_ADMIN', 'COORDINATOR'],
-  'family:book_appointments': ['PARENT', 'STUDENT'],
+
   'family:view': ['PARENT', 'STUDENT'],
-} as const satisfies Record<string, readonly Role[]>
+} satisfies Record<string, Role[]>
 
 export type Permission = keyof typeof PERMISSIONS
+export type Role = (typeof PERMISSIONS)['platform:manage_schools'][number]
 
 export function can(role: Role | null | undefined, permission: Permission): boolean {
   if (!role) return false
-  return (PERMISSIONS[permission] as readonly Role[]).includes(role)
-}
-
-/** Funções que cada perfil pode atribuir a outros usuários dentro de uma escola. */
-const ASSIGNABLE: Record<Role, readonly Role[]> = {
-  SUPER_ADMIN: SCHOOL_ROLES,
-  SCHOOL_ADMIN: SCHOOL_ROLES,
-  COORDINATOR: ['TEACHER', 'LIBRARIAN', 'PARENT', 'STUDENT'],
-  TEACHER: [],
-  LIBRARIAN: [],
-  PARENT: [],
-  STUDENT: [],
-}
-
-export function assignableRoles(role: Role | null | undefined): readonly Role[] {
-  return role ? ASSIGNABLE[role] : []
-}
-
-export function isRole(value: unknown): value is Role {
-  return typeof value === 'string' && (ROLES as readonly string[]).includes(value)
+  return PERMISSIONS[permission].includes(role)
 }
