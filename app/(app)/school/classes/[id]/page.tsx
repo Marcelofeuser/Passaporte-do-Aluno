@@ -42,7 +42,10 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
       <Card>
         <CardHeader title="Disciplinas e professores" />
         {subjects.length === 0 ? (
-          <EmptyState title="Grade vazia" description="Adicione as disciplinas desta turma." />
+          <EmptyState
+            title="Grade vazia"
+            description="Adicione as disciplinas desta turma com o professor e a carga horária. A carga horária define quantas faltas o aluno pode ter (mínimo de 75% de frequência)."
+          />
         ) : (
           <ul className="divide-y divide-border">
             {subjects.map((s) => (
@@ -112,7 +115,11 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
         <Card>
           <CardHeader title={`Alunos (${roster.length})`} description="Para matricular, abra a ficha do aluno." />
           {roster.length === 0 ? (
-            <EmptyState title="Nenhum aluno matriculado" description="Matricule alunos pela ficha de cada um." />
+            <EmptyState
+              title="Nenhum aluno matriculado"
+              description="Abra a ficha do aluno e matricule-o nesta turma. Só alunos matriculados aparecem na chamada e no diário."
+              action={{ href: '/school/students', label: 'Ver alunos' }}
+            />
           ) : (
             <ol className="divide-y divide-border">
               {roster.map((r, i) => (

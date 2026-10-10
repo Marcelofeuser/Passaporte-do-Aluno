@@ -37,8 +37,13 @@ export default async function GradesPage() {
           />
         ) : rows.length === 0 ? (
           <EmptyState
-            title="Nenhuma disciplina"
-            description="Não há disciplinas em turmas do ano letivo vigente para lançar notas."
+            title="Seu diário ainda está vazio"
+            description={
+              canConfigure
+                ? 'Nenhuma turma do ano letivo vigente tem disciplinas. Abra uma turma e adicione as disciplinas com o professor responsável.'
+                : 'Você ainda não foi atribuído a nenhuma disciplina do ano letivo vigente. Peça à coordenação para incluir você na grade da turma.'
+            }
+            action={canConfigure ? { href: '/school/classes', label: 'Ir para as turmas' } : undefined}
           />
         ) : (
           <ul className="divide-y divide-border">

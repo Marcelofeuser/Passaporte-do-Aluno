@@ -21,7 +21,10 @@ export default async function TeachersPage() {
       <Card>
         <CardHeader title={`${teachers.length} ${teachers.length === 1 ? 'professor' : 'professores'}`} />
         {teachers.length === 0 ? (
-          <EmptyState title="Nenhum professor" description="Cadastre o corpo docente para montar as turmas." />
+          <EmptyState
+            title="Nenhum professor cadastrado"
+            description="Cada disciplina da turma precisa de um professor. Use o mesmo e-mail da conta dele para que o diário apareça quando ele entrar."
+          />
         ) : (
           <ul className="divide-y divide-border">
             {teachers.map((t) => (

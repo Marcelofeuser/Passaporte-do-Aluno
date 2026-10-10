@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { buttonClasses } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export function Card({
@@ -45,13 +47,26 @@ export function CardHeader({
   )
 }
 
-export function EmptyState({ title, description }: { title: string; description: string }) {
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description: string
+  action?: { href: string; label: string }
+}) {
   return (
     <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
       <p className="font-semibold">{title}</p>
       <p className="max-w-sm text-sm leading-relaxed text-muted-foreground text-pretty">
         {description}
       </p>
+      {action ? (
+        <Link href={action.href} className={cn(buttonClasses('outline', 'sm'), 'mt-3')}>
+          {action.label}
+        </Link>
+      ) : null}
     </div>
   )
 }

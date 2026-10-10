@@ -21,7 +21,10 @@ export default async function YearsPage() {
       <Card>
         <CardHeader title="Calendário" />
         {years.length === 0 ? (
-          <EmptyState title="Nenhum ano letivo" description="Crie o ano letivo atual para começar a montar turmas." />
+          <EmptyState
+            title="Nenhum ano letivo"
+            description="Este é o primeiro passo. Crie o ano letivo atual e marque-o como vigente: turmas, notas e frequência ficam ligadas a ele."
+          />
         ) : (
           <ul className="divide-y divide-border">
             {years.map((y) => (

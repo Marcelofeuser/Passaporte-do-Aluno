@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Card, CardHeader, RoleStamp } from '@/components/ui/card'
+import { OnboardingChecklist } from '@/components/school/onboarding-checklist'
+import { getOnboardingSteps } from '@/lib/onboarding'
 import { getSchoolCounts, listSchools } from '@/lib/queries'
 import { can, ROLE_LABELS, type Role } from '@/lib/rbac'
 import { isSuperAdmin, requirePageContext } from '@/lib/session'
@@ -46,18 +48,46 @@ export default async function DashboardPage() {
       ) : isSuperAdmin(ctx) && role === 'SUPER_ADMIN' ? (
         <SuperAdminHome />
       ) : ctx.active.schoolId ? (
-        <SchoolHome schoolId={ctx.active.schoolId} role={ctx.active.role} />
+        <SchoolHome
+          schoolId={ctx.active.schoolId}
+          role={ctx.active.role}
+          userId={ctx.user.id}
+          email={ctx.user.email}
+        />
       ) : null}
     </>
   )
 }
 
-async function SchoolHome({ schoolId, role }: { schoolId: string; role: Role }) {
+async function SchoolHome({
+  schoolId,
+  role,
+  userId,
+  email,
+}: {
+  schoolId: string
+  role: Role
+  userId: string
+  email: string
+}) {
   {
     const showStats = can(role, 'school:view_users')
-    const counts = showStats ? await getSchoolCounts(schoolId) : null
+    const [counts, steps] = await Promise.all([
+      showStats ? getSchoolCounts(schoolId) : null,
+      getOnboardingSteps(schoolId, role, userId, email),
+    ])
     return (
       <>
+        {steps ? (
+          <OnboardingChecklist
+            steps={steps}
+            description={
+              role === 'TEACHER'
+                ? 'Siga esta ordem para começar a usar o diário.'
+                : 'Siga esta ordem para deixar a escola pronta para chamada e notas.'
+            }
+          />
+        ) : null}
         {counts ? (
           <div className="grid grid-cols-3 gap-3">
             <Stat label="Usuários" value={counts.members} />

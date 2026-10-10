@@ -20,7 +20,10 @@ export default async function SubjectsPage() {
       <Card>
         <CardHeader title={`${subjects.length} ${subjects.length === 1 ? 'disciplina' : 'disciplinas'}`} />
         {subjects.length === 0 ? (
-          <EmptyState title="Nenhuma disciplina" description="Comece por Língua Portuguesa, Matemática, Ciências…" />
+          <EmptyState
+            title="Nenhuma disciplina cadastrada"
+            description="As disciplinas formam a grade das turmas e o diário do professor. Comece por Língua Portuguesa, Matemática e Ciências no formulário abaixo."
+          />
         ) : (
           <ul className="divide-y divide-border">
             {subjects.map((s) => (

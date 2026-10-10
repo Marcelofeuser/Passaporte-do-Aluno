@@ -60,7 +60,10 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
           <Card>
             <CardHeader title={`${classes.length} ${classes.length === 1 ? 'turma' : 'turmas'} em ${selected?.year}`} />
             {classes.length === 0 ? (
-              <EmptyState title="Nenhuma turma" description="Crie a primeira turma deste ano letivo." />
+              <EmptyState
+                title="Nenhuma turma neste ano letivo"
+                description="Crie a primeira turma no formulário abaixo. Depois, abra a turma para adicionar as disciplinas, o professor e a carga horária."
+              />
             ) : (
               <ul className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
                 {classes.map((c) => (
