@@ -25,9 +25,11 @@ A correção não substitui nem apaga o dado original. Após a análise do supor
 
 ## Autenticação e provisionamento
 
-O cadastro público está desabilitado. A instituição cria contas pela área administrativa, e nenhum novo usuário recebe o perfil Super Admin automaticamente. Em uma instalação nova, um operador autorizado deve provisionar a primeira conta Super Admin por um procedimento administrativo controlado, usando o fluxo de credenciais do Better Auth; não reative o cadastro público nem a promoção automática para iniciar o sistema.
+O cadastro público está desabilitado. A instituição cria contas pela área administrativa, e nenhum novo usuário recebe o perfil Super Admin automaticamente. Apenas **marcelofeuser.go@gmail.com** pode ter o perfil global Super Admin. A migração remove os demais vínculos ativos e o banco rejeita novas atribuições a outros e-mails.
 
 Antes de habilitar a versão em produção, revise todas as associações existentes com o perfil `SUPER_ADMIN` e confirme que cada uma é autorizada. Desabilitar o cadastro público impede novas promoções automáticas, mas não revoga perfis já gravados.
+
+A migração marca a conta autorizada para troca obrigatória de senha e exige TOTP antes de liberar páginas ou ações administrativas. Para emitir a senha temporária, depois de implantar o schema e o código, configure `SUPER_ADMIN_BOOTSTRAP_TOKEN` como variável secreta na Vercel, faça uma única chamada `POST /api/admin/super-admin-bootstrap` com esse token no cabeçalho Bearer e capture a senha temporária exibida uma única vez. O endpoint invalida as sessões anteriores e não grava a senha em texto aberto. Remova a variável da Vercel após a emissão e faça novo deploy. No primeiro acesso, troque a senha, cadastre o aplicativo autenticador e guarde os códigos de recuperação.
 
 O envio de redefinição de senha ainda depende da integração de e-mail. Em produção, a solicitação é registrada, mas o sistema não envia o link enquanto um provedor de e-mail não estiver configurado.
 
