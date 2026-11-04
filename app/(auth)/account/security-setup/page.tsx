@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { SecuritySetupForm } from '@/components/auth/security-setup-form'
 import { db } from '@/lib/db'
@@ -13,8 +14,8 @@ export default async function SecuritySetupPage() {
   const [state] = await db
     .select({ twoFactorEnabled: user.twoFactorEnabled, mustChangePassword: userSecurity.mustChangePassword })
     .from(user)
-    .leftJoin(userSecurity, (await import('drizzle-orm')).eq(userSecurity.userId, user.id))
-    .where((await import('drizzle-orm')).eq(user.id, session.user.id))
+    .leftJoin(userSecurity, eq(userSecurity.userId, user.id))
+    .where(eq(user.id, session.user.id))
     .limit(1)
 
   if (!state || (state.twoFactorEnabled && !state.mustChangePassword)) redirect('/dashboard')
