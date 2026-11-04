@@ -323,3 +323,120 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- Keep every local profile bound to the passport's current owner or a completed transfer.
+CREATE OR REPLACE FUNCTION pa_validate_student_passport_record()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  current_school uuid;
+  current_student uuid;
+BEGIN
+  SELECT current_school_id, current_student_id
+  INTO current_school, current_student
+  FROM student_passport
+  WHERE id = NEW.passport_id;
+
+  IF current_school IS NULL THEN
+    RAISE EXCEPTION 'Student passport is missing'
+      USING ERRCODE = '23503';
+  END IF;
+
+  IF NEW.school_id = current_school AND NEW.id = current_student THEN
+    RETURN NEW;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM student_transfer t
+    WHERE t.passport_id = NEW.passport_id
+      AND t.from_school_id = NEW.school_id
+      AND t.from_student_id = NEW.id
+      AND t.to_school_id = current_school
+      AND t.to_student_id = current_student
+      AND t.status = 'ACCEPTED'
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION 'Student profile does not match a current owner or accepted transfer'
+    USING ERRCODE = '42501';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS pa_validate_student_passport_record ON student;
+CREATE CONSTRAINT TRIGGER pa_validate_student_passport_record
+AFTER INSERT OR UPDATE ON student
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION pa_validate_student_passport_record();
+
+-- Transfer requests cannot be rewritten or deleted after creation, and can be resolved once.
+CREATE OR REPLACE FUNCTION pa_guard_transfer_request_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  current_school uuid;
+  current_student uuid;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Transfer requests are retained as audit history'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF OLD.status <> 'PENDING'
+     OR NEW.passport_id IS DISTINCT FROM OLD.passport_id
+     OR NEW.from_school_id IS DISTINCT FROM OLD.from_school_id
+     OR NEW.to_school_id IS DISTINCT FROM OLD.to_school_id
+     OR NEW.from_student_id IS DISTINCT FROM OLD.from_student_id
+     OR NEW.requested_by IS DISTINCT FROM OLD.requested_by
+     OR NEW.requested_at IS DISTINCT FROM OLD.requested_at
+     OR NEW.status NOT IN ('ACCEPTED', 'REJECTED', 'CANCELLED') THEN
+    RAISE EXCEPTION 'Transfer request is immutable except for its one-time decision'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NEW.status = 'ACCEPTED' THEN
+    SELECT current_school_id, current_student_id
+    INTO current_school, current_student
+    FROM student_passport
+    WHERE id = OLD.passport_id;
+    IF current_school IS DISTINCT FROM OLD.to_school_id
+       OR current_student IS DISTINCT FROM NEW.to_student_id
+       OR NEW.to_student_id IS NULL THEN
+      RAISE EXCEPTION 'Accepted transfer must match the passport owner'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  NEW.resolved_at := COALESCE(NEW.resolved_at, now());
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS pa_transfer_request_mutation_guard ON student_transfer;
+CREATE TRIGGER pa_transfer_request_mutation_guard
+BEFORE UPDATE OR DELETE ON student_transfer
+FOR EACH ROW EXECUTE FUNCTION pa_guard_transfer_request_mutation();
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'student_transfer_from_school_fk') THEN
+    ALTER TABLE student_transfer
+      ADD CONSTRAINT student_transfer_from_school_fk
+      FOREIGN KEY (from_school_id) REFERENCES school(id) ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'student_transfer_to_school_fk') THEN
+    ALTER TABLE student_transfer
+      ADD CONSTRAINT student_transfer_to_school_fk
+      FOREIGN KEY (to_school_id) REFERENCES school(id) ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'student_transfer_from_student_fk') THEN
+    ALTER TABLE student_transfer
+      ADD CONSTRAINT student_transfer_from_student_fk
+      FOREIGN KEY (from_student_id) REFERENCES student(id) ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'student_transfer_to_student_fk') THEN
+    ALTER TABLE student_transfer
+      ADD CONSTRAINT student_transfer_to_student_fk
+      FOREIGN KEY (to_student_id) REFERENCES student(id) ON DELETE RESTRICT;
+  END IF;
+END;
+$$;
