@@ -40,16 +40,14 @@ async function ensureDomainProfile(role: Role, schoolId: string, userId: string,
       .limit(1)
     if (!existing) {
       const passportId = randomUUID()
+      const studentId = randomUUID()
       await db.transaction(async (tx) => {
-        const [created] = await tx
-          .insert(student)
-          .values({ schoolId, userId, fullName, passportId })
-          .returning({ id: student.id })
         await tx.insert(studentPassport).values({
           id: passportId,
           currentSchoolId: schoolId,
-          currentStudentId: created.id,
+          currentStudentId: studentId,
         })
+        await tx.insert(student).values({ id: studentId, schoolId, userId, fullName, passportId })
       })
     } else if (!existing.passportId) {
       const passportId = randomUUID()
