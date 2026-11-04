@@ -11,7 +11,7 @@ CREATE TABLE student (
 CREATE TABLE student_parent (student_id uuid NOT NULL, parent_id uuid NOT NULL);
 CREATE TABLE student_document (id uuid PRIMARY KEY, school_id uuid NOT NULL, student_id uuid NOT NULL, deleted_at timestamptz);
 CREATE TABLE enrollment (id uuid PRIMARY KEY, school_id uuid NOT NULL, student_id uuid NOT NULL, class_id uuid, academic_year_id uuid, status text NOT NULL DEFAULT 'ACTIVE');
-CREATE TABLE school_enrollments (id uuid PRIMARY KEY, school_id uuid NOT NULL, student_id uuid NOT NULL);
+CREATE TABLE school_enrollments (id uuid PRIMARY KEY, school_id uuid NOT NULL, student_id uuid NOT NULL, status text);
 CREATE TABLE student_attendance (id uuid PRIMARY KEY, school_id uuid NOT NULL, student_id uuid NOT NULL, status text);
 CREATE TABLE academic_history (id uuid PRIMARY KEY, school_id uuid NOT NULL, student_id uuid NOT NULL, notes text);
 CREATE TABLE assessment (id uuid PRIMARY KEY, school_id uuid NOT NULL, class_subject_id uuid, subject_id uuid, max_score numeric);
