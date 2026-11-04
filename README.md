@@ -1,75 +1,35 @@
-# React + TypeScript + Vite
+# Passaporte do Aluno
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Plataforma escolar para acompanhar a jornada do aluno, conectando escolas, equipes pedagógicas, estudantes e responsáveis.
 
-Currently, two official plugins are available:
+## Áreas do produto
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Escola:** estudantes, turmas, matrículas, frequência, notas, biblioteca, calendário, atendimentos, ocorrências, professores, disciplinas e anos letivos.
+- **Família:** agenda, atendimentos e biblioteca.
+- **Administração:** escolas e auditoria.
 
-## React Compiler
+## Tecnologias
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Next.js 16 com App Router e React 19
+- TypeScript e Tailwind CSS 4
+- Better Auth para autenticação
+- PostgreSQL com Drizzle ORM; schema em `lib/db/schema.ts` e migrações em `migrations/`
+- Vercel Blob para arquivos privados
 
-## Expanding the ESLint configuration
+## Desenvolvimento local
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Requer Node.js compatível com Next.js 16 e pnpm.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+pnpm install
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Configure as variáveis de ambiente necessárias antes de iniciar. A aplicação usa `DATABASE_URL` para conectar ao PostgreSQL; `CRON_SECRET` protege os endpoints de alertas do calendário e da biblioteca. A autenticação e o armazenamento de arquivos também dependem da configuração do ambiente do projeto.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Verificações
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+pnpm typecheck
+pnpm build
 ```
