@@ -45,7 +45,7 @@ WHERE sm.role = 'SUPER_ADMIN'
 
 -- Keep exactly one active global membership for the approved account.
 WITH ranked AS (
-  SELECT id, row_number() OVER (ORDER BY created_at, id) AS position
+  SELECT sm.id, row_number() OVER (ORDER BY sm.created_at, sm.id) AS position
   FROM school_membership sm
   JOIN "user" u ON u.id = sm.user_id
   WHERE sm.role = 'SUPER_ADMIN'
