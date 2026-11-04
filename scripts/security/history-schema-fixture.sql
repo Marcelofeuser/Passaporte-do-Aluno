@@ -1,6 +1,31 @@
 -- Minimal PostgreSQL fixture for migrations 0012 and 0013.
 -- This validates the production migration SQL and database-level write guards.
 
+CREATE TABLE "user" (
+  id text PRIMARY KEY,
+  email text NOT NULL UNIQUE,
+  name text NOT NULL DEFAULT 'Test',
+  "emailVerified" boolean NOT NULL DEFAULT false,
+  image text,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE school_membership (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id text NOT NULL,
+  school_id uuid,
+  role text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz
+);
+INSERT INTO "user" (id, email) VALUES
+  ('admin-marcelo', 'MarceloFeuser.go@gmail.com'),
+  ('admin-other', 'intruder@example.com');
+INSERT INTO school_membership (user_id, school_id, role) VALUES
+  ('admin-marcelo', NULL, 'SUPER_ADMIN'),
+  ('admin-other', NULL, 'SUPER_ADMIN');
+
 CREATE TABLE school (id uuid PRIMARY KEY);
 CREATE TABLE student (
   id uuid PRIMARY KEY,
