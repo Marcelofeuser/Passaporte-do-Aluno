@@ -47,7 +47,23 @@ VALUES ('00000000-0000-4000-8000-000000000704', '00000000-0000-4000-8000-0000000
 INSERT INTO occurrence_change (id, school_id, occurrence_id, reason)
 VALUES ('00000000-0000-4000-8000-000000000705', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000701', 'Correção anterior');
 
-DO $$
+DO $
+BEGIN
+  IF (SELECT count(*) FROM school_membership WHERE role = 'SUPER_ADMIN' AND deleted_at IS NULL) <> 1 THEN
+    RAISE EXCEPTION 'Expected exactly one active Super Admin membership';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM school_membership sm
+    JOIN "user" u ON u.id = sm.user_id
+    WHERE sm.role = 'SUPER_ADMIN' AND sm.deleted_at IS NULL
+      AND lower(u.email) = lower('MarceloFeuser.go@gmail.com')
+  ) THEN
+    RAISE EXCEPTION 'Approved Super Admin membership is missing';
+  END IF;
+END;
+$;
+
+DO $
 DECLARE
   v_passport_id uuid;
 BEGIN
@@ -91,6 +107,7 @@ $$;
 
 BEGIN;
 
+SELECT pg_temp.assert_blocked($q$INSERT INTO school_membership (user_id, school_id, role) VALUES ('admin-other', NULL, 'SUPER_ADMIN')$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE student SET full_name = 'alterado' WHERE id = '00000000-0000-4000-8000-000000000101'$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE student_document SET deleted_at = now() WHERE id = '00000000-0000-4000-8000-000000000403'$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE enrollment SET status = 'ACTIVE' WHERE id = '00000000-0000-4000-8000-000000000401'$q$);
