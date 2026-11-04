@@ -49,16 +49,16 @@ VALUES ('00000000-0000-4000-8000-000000000705', '00000000-0000-4000-8000-0000000
 
 DO $$
 DECLARE
-  passport_id uuid;
+  v_passport_id uuid;
 BEGIN
-  SELECT passport_id INTO passport_id
+  SELECT passport_id INTO v_passport_id
   FROM student WHERE id = '00000000-0000-4000-8000-000000000101';
 
   INSERT INTO student_transfer (passport_id, from_school_id, to_school_id, from_student_id, requested_by)
-  VALUES (passport_id, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000101', 'school-admin');
+  VALUES (v_passport_id, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000101', 'school-admin');
 
   INSERT INTO student (id, school_id, passport_id, full_name)
-  VALUES ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000002', passport_id, 'Aluno transferido');
+  VALUES ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000002', v_passport_id, 'Aluno transferido');
 
   UPDATE enrollment SET status = 'TRANSFERRED'
   WHERE id = '00000000-0000-4000-8000-000000000401';
@@ -66,14 +66,14 @@ BEGIN
   UPDATE student_passport
   SET current_school_id = '00000000-0000-4000-8000-000000000002',
       current_student_id = '00000000-0000-4000-8000-000000000102'
-  WHERE id = passport_id;
+  WHERE id = v_passport_id;
 
   UPDATE student_transfer
   SET status = 'ACCEPTED',
       to_student_id = '00000000-0000-4000-8000-000000000102',
       resolved_by = 'destination-admin',
       resolved_at = now()
-  WHERE passport_id = passport_id AND status = 'PENDING';
+  WHERE passport_id = v_passport_id AND status = 'PENDING';
 END
 $$;
 
