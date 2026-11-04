@@ -42,6 +42,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
       )
       return
     }
+    if ((result.data as { twoFactorRedirect?: boolean } | undefined)?.twoFactorRedirect) {
+      router.replace('/two-factor')
+      router.refresh()
+      return
+    }
     router.push('/dashboard')
     router.refresh()
   }
