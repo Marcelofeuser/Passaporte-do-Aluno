@@ -3,7 +3,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { account, schoolMembership, session, user, userSecurity } from '@/lib/db/schema'
+import { account, schoolMembership, session, twoFactor, user, userSecurity } from '@/lib/db/schema'
 import { recordAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
@@ -36,15 +36,19 @@ export async function POST(request: Request) {
       .from(userSecurity).where(eq(userSecurity.userId, target.id)).for('update')
     if (!state || state.issuedAt) return false
 
+    const now = new Date()
+    await tx.delete(twoFactor).where(eq(twoFactor.userId, target.id))
+    await tx.update(user).set({ twoFactorEnabled: false, updatedAt: now }).where(eq(user.id, target.id))
+
     const [credential] = await tx.select({ id: account.id }).from(account)
       .where(and(eq(account.userId, target.id), eq(account.providerId, 'credential'))).limit(1)
     if (credential) {
-      await tx.update(account).set({ password: passwordHash, updatedAt: new Date() }).where(eq(account.id, credential.id))
+      await tx.update(account).set({ password: passwordHash, updatedAt: now }).where(eq(account.id, credential.id))
     } else {
       await tx.insert(account).values({ id: randomUUID(), accountId: target.id, providerId: 'credential', userId: target.id, password: passwordHash })
     }
     await tx.delete(session).where(eq(session.userId, target.id))
-    await tx.update(userSecurity).set({ mustChangePassword: true, bootstrapPasswordIssuedAt: new Date(), updatedAt: new Date() })
+    await tx.update(userSecurity).set({ mustChangePassword: true, bootstrapPasswordIssuedAt: now, updatedAt: now })
       .where(eq(userSecurity.userId, target.id))
     return true
   })
