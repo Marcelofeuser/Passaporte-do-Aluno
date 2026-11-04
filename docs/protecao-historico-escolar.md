@@ -23,6 +23,12 @@ A solicitação deve informar o registro original, a alteração solicitada, o m
 
 A correção não substitui nem apaga o dado original. Após a análise do suporte, ela deve ser registrada como um adendo auditável, preservando o valor original e a decisão tomada.
 
+## Autenticação e provisionamento
+
+O cadastro público está desabilitado. A instituição cria contas pela área administrativa, e nenhum novo usuário recebe o perfil Super Admin automaticamente. Em uma instalação nova, um operador autorizado deve provisionar a primeira conta Super Admin por um procedimento administrativo controlado, usando o fluxo de credenciais do Better Auth; não reative o cadastro público nem a promoção automática para iniciar o sistema.
+
+O envio de redefinição de senha ainda depende da integração de e-mail. Em produção, a solicitação é registrada, mas o sistema não envia o link enquanto um provedor de e-mail não estiver configurado.
+
 ## Implantação
 
 A migração `0013_student_history_immutability.sql` precisa ser aplicada no PostgreSQL depois da `0012_student_passport.sql` e antes de considerar a proteção ativa em produção. O merge do código não executa essa migração automaticamente.
