@@ -1,4 +1,4 @@
--- Executed after migrations 0012 and 0013 against PostgreSQL.
+-- Executed after migrations 0012, 0013, and 0014 against PostgreSQL.
 \set ON_ERROR_STOP on
 
 BEGIN;
