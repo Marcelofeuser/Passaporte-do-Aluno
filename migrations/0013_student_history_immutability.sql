@@ -243,9 +243,10 @@ BEGIN
     RAISE EXCEPTION 'Context attached to transferred student history is read-only'
       USING ERRCODE = '42501';
   END IF;
-  RETURN OLD;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
 END;
-$$;
+$;
 
 DO $$
 DECLARE
