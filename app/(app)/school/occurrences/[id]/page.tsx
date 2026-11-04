@@ -22,6 +22,7 @@ import {
   listOccurrenceTypes,
 } from '@/lib/occurrence-queries'
 import { can } from '@/lib/rbac'
+import { getTeacherClassIds } from '@/lib/grade-queries'
 import { UUID_RE } from '@/lib/school-action'
 import { requireSchoolPage } from '@/lib/school-page'
 
@@ -39,7 +40,14 @@ export default async function OccurrenceDetailPage({ params }: { params: Promise
   const { ctx, schoolId, role } = await requireSchoolPage('school:manage_discipline')
   const scope = await disciplineScope(schoolId, role, ctx.user.id, ctx.user.email)
   const row = await getOccurrence(schoolId, id)
-  if (!row || !canSeeOccurrence(row, scope, ctx.user.id)) notFound()
+  if (!row) notFound()
+  if (!scope.all) {
+    if (!scope.teacherId) notFound()
+    const classIds = await getTeacherClassIds(schoolId, scope.teacherId)
+    const assignedClass = row.classId !== null && classIds.includes(row.classId)
+    if (!assignedClass && row.recordedByUserId !== ctx.user.id) notFound()
+  }
+  if (!canSeeOccurrence(row, scope, ctx.user.id)) notFound()
 
   const [types, history] = await Promise.all([
     listOccurrenceTypes(schoolId),
