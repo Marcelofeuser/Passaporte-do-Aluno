@@ -23,6 +23,7 @@ export const user = pgTable('user', {
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   emailVerified: boolean('emailVerified').notNull().default(false),
+  twoFactorEnabled: boolean('twoFactorEnabled').notNull().default(false),
   image: text('image'),
   createdAt: timestamp('createdAt', tz).notNull().defaultNow(),
   updatedAt: timestamp('updatedAt', tz).notNull().defaultNow(),
@@ -57,6 +58,23 @@ export const account = pgTable('account', {
   password: text('password'),
   createdAt: timestamp('createdAt', tz).notNull().defaultNow(),
   updatedAt: timestamp('updatedAt', tz).notNull().defaultNow(),
+})
+
+export const twoFactor = pgTable('twoFactor', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  secret: text('secret').notNull(),
+  backupCodes: text('backupCodes').notNull(),
+  verified: boolean('verified').notNull().default(false),
+  failedVerificationCount: integer('failedVerificationCount').notNull().default(0),
+  lockedUntil: timestamp('lockedUntil', tz),
+})
+
+export const userSecurity = pgTable('user_security', {
+  userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
+  bootstrapPasswordIssuedAt: timestamp('bootstrap_password_issued_at', tz),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
 })
 
 export const verification = pgTable('verification', {
