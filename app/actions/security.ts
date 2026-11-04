@@ -1,10 +1,10 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { and, eq, isNull } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { user, userSecurity } from '@/lib/db/schema'
+import { userSecurity } from '@/lib/db/schema'
 import { getSession } from '@/lib/session'
 import { isApprovedSuperAdminEmail } from '@/lib/super-admin'
 import type { ActionState } from '@/lib/validation'
@@ -28,17 +28,12 @@ export async function completeInitialPasswordChange(formData: FormData): Promise
       headers: await headers(),
     })
 
-    await db
+    const [security] = await db
       .update(userSecurity)
       .set({ mustChangePassword: false, updatedAt: new Date() })
       .where(eq(userSecurity.userId, session.user.id))
-
-    const [account] = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(and(eq(user.id, session.user.id), isNull(user.deletedAt)))
-      .limit(1)
-    if (!account) return { ok: false, message: 'A conta não foi encontrada.' }
+      .returning({ userId: userSecurity.userId })
+    if (!security) return { ok: false, message: 'Configuração de segurança não encontrada.' }
 
     return { ok: true, message: 'Senha alterada. Configure agora o aplicativo autenticador.' }
   } catch {
