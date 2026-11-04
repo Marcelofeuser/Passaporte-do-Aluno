@@ -204,7 +204,7 @@ export const student = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     schoolId: uuid('school_id').notNull(),
-    passportId: uuid('passport_id'),
+    passportId: uuid('passport_id').notNull(),
     userId: text('user_id'),
     fullName: text('full_name').notNull(),
     socialName: text('social_name'),
