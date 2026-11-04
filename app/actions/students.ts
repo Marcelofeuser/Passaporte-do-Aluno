@@ -121,16 +121,17 @@ export async function createStudent(_: ActionState, formData: FormData): Promise
     }
 
     const passportId = randomUUID()
+    const studentId = randomUUID()
     const row = await db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(student)
-        .values({ ...parsed.data, schoolId, passportId })
-        .returning({ id: student.id })
       await tx.insert(studentPassport).values({
         id: passportId,
         currentSchoolId: schoolId,
-        currentStudentId: created.id,
+        currentStudentId: studentId,
       })
+      const [created] = await tx
+        .insert(student)
+        .values({ ...parsed.data, id: studentId, schoolId, passportId })
+        .returning({ id: student.id })
       return created
     })
     createdId = row.id
