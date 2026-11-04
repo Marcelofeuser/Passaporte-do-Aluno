@@ -37,11 +37,11 @@ UPDATE school_membership sm
 SET deleted_at = coalesce(sm.deleted_at, now()),
     updated_at = now()
 WHERE sm.role = 'SUPER_ADMIN'
-  AND NOT EXISTS (
+  AND (sm.school_id IS NOT NULL OR NOT EXISTS (
     SELECT 1 FROM "user" u
     WHERE u.id = sm.user_id
       AND lower(u.email) = lower('MarceloFeuser.go@gmail.com')
-  );
+  ));
 
 -- Keep exactly one active global membership for the approved account.
 WITH ranked AS (
