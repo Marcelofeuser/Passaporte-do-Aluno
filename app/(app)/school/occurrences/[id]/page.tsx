@@ -18,11 +18,11 @@ import {
   canSeeOccurrence,
   disciplineScope,
   getOccurrence,
+  getTeacherClassIds,
   getOccurrenceHistory,
   listOccurrenceTypes,
 } from '@/lib/occurrence-queries'
 import { can } from '@/lib/rbac'
-import { getTeacherClassIds } from '@/lib/grade-queries'
 import { UUID_RE } from '@/lib/school-action'
 import { requireSchoolPage } from '@/lib/school-page'
 
