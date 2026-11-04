@@ -27,6 +27,8 @@ A correção não substitui nem apaga o dado original. Após a análise do supor
 
 O cadastro público está desabilitado. A instituição cria contas pela área administrativa, e nenhum novo usuário recebe o perfil Super Admin automaticamente. Em uma instalação nova, um operador autorizado deve provisionar a primeira conta Super Admin por um procedimento administrativo controlado, usando o fluxo de credenciais do Better Auth; não reative o cadastro público nem a promoção automática para iniciar o sistema.
 
+Antes de habilitar a versão em produção, revise todas as associações existentes com o perfil `SUPER_ADMIN` e confirme que cada uma é autorizada. Desabilitar o cadastro público impede novas promoções automáticas, mas não revoga perfis já gravados.
+
 O envio de redefinição de senha ainda depende da integração de e-mail. Em produção, a solicitação é registrada, mas o sistema não envia o link enquanto um provedor de e-mail não estiver configurado.
 
 ## Implantação
