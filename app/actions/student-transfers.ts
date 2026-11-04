@@ -168,18 +168,6 @@ export async function acceptStudentTransfer(_: ActionState, formData: FormData):
       let destinationStudentId: string
       if (existingProfile) {
         destinationStudentId = existingProfile.id
-        await tx
-          .update(student)
-          .set({
-            fullName: source.fullName,
-            socialName: source.socialName,
-            birthDate: source.birthDate,
-            sex: source.sex,
-            cpf: source.cpf,
-            deletedAt: null,
-            updatedAt: new Date(),
-          })
-          .where(and(eq(student.id, destinationStudentId), eq(student.schoolId, schoolId)))
       } else {
         const [created] = await tx
           .insert(student)
@@ -217,6 +205,21 @@ export async function acceptStudentTransfer(_: ActionState, formData: FormData):
         .update(studentPassport)
         .set({ currentSchoolId: schoolId, currentStudentId: destinationStudentId, updatedAt: resolvedAt })
         .where(eq(studentPassport.id, transfer.passportId))
+      if (existingProfile) {
+        await tx
+          .update(student)
+          .set({
+            fullName: source.fullName,
+            socialName: source.socialName,
+            birthDate: source.birthDate,
+            sex: source.sex,
+            cpf: source.cpf,
+            deletedAt: null,
+            updatedAt: resolvedAt,
+          })
+          .where(and(eq(student.id, destinationStudentId), eq(student.schoolId, schoolId)))
+      }
+
       await tx
         .update(studentTransfer)
         .set({
