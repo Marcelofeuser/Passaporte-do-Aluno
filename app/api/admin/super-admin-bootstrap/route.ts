@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   const expected = process.env.SUPER_ADMIN_BOOTSTRAP_TOKEN ?? ''
-  const supplied = request.headers.get('authorization')?.replace(/^Bearer\\s+/i, '') ?? ''
+  const supplied = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? ''
   const a = Buffer.from(expected)
   const b = Buffer.from(supplied)
   if (!expected || a.length !== b.length || !timingSafeEqual(a, b)) {
