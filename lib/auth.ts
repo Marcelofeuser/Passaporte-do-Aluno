@@ -1,27 +1,7 @@
 import { betterAuth } from 'better-auth'
-import { and, eq, isNull } from 'drizzle-orm'
 import { db, pool } from '@/lib/db'
-import { schoolMembership } from '@/lib/db/schema'
 import { recordAudit } from '@/lib/audit'
 import { logger } from '@/lib/logger'
-
-async function bootstrapSuperAdmin(userId: string) {
-  const existing = await db
-    .select({ id: schoolMembership.id })
-    .from(schoolMembership)
-    .where(and(eq(schoolMembership.role, 'SUPER_ADMIN'), isNull(schoolMembership.deletedAt)))
-    .limit(1)
-  if (existing.length > 0) return
-
-  await db.insert(schoolMembership).values({ userId, role: 'SUPER_ADMIN', schoolId: null })
-  await recordAudit({
-    action: 'platform.super_admin_bootstrapped',
-    entityType: 'user',
-    entityId: userId,
-    actorUserId: userId,
-  })
-  logger.info('auth.super_admin_bootstrapped', { userId })
-}
 
 export const auth = betterAuth({
   database: pool,
@@ -34,6 +14,7 @@ export const auth = betterAuth({
         : process.env.V0_RUNTIME_URL),
   emailAndPassword: {
     enabled: true,
+    disableSignUp: true,
     autoSignIn: true,
     minPasswordLength: 8,
     maxPasswordLength: 128,
@@ -73,7 +54,6 @@ export const auth = betterAuth({
             entityId: createdUser.id,
             actorUserId: createdUser.id,
           })
-          await bootstrapSuperAdmin(createdUser.id)
         },
       },
     },
