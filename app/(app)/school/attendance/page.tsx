@@ -13,7 +13,6 @@ export const metadata: Metadata = { title: 'Frequência e Chamada Diária' }
 
 interface PageProps {
   searchParams: Promise<{
-    schoolId?: string
     classId?: string
     date?: string
   }>
@@ -39,9 +38,8 @@ const STATUS_LABELS: Record<string, { label: string; badgeClass: string }> = {
 }
 
 export default async function AttendanceManagementPage({ searchParams }: PageProps) {
-  const { schoolId: defaultSchoolId } = await requireSchoolPage('school:manage_attendance')
+  const { schoolId } = await requireSchoolPage('school:manage_all_attendance')
   const params = await searchParams
-  const schoolId = params.schoolId || defaultSchoolId
   const selectedClassId = params.classId || ''
   const selectedDate = params.date || ''
 
@@ -167,7 +165,6 @@ export default async function AttendanceManagementPage({ searchParams }: PagePro
         method="GET"
         className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-xs"
       >
-        {params.schoolId ? <input type="hidden" name="schoolId" value={params.schoolId} /> : null}
 
         <div className="flex flex-1 min-w-48 flex-col gap-1.5">
           <label htmlFor="classId" className="text-sm font-semibold">
