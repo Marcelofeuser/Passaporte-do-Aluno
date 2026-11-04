@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { and, eq, isNull, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -12,6 +13,8 @@ import {
   schoolClass,
   student,
   studentDocument,
+  studentPassport,
+  studentTransfer,
   studentParent,
 } from '@/lib/db/schema'
 import { requireSchoolAction, runAction, runVoidAction, UUID_RE } from '@/lib/school-action'
@@ -37,12 +40,66 @@ import {
 
 const MANAGE = 'school:manage_academic' as const
 
-async function assertStudent(schoolId: string, studentId: string) {
+async function assertStudent(schoolId: string, studentId: string, userId: string) {
   const [row] = await db
-    .select({ id: student.id, photoPathname: student.photoPathname })
+    .select({
+      id: student.id,
+      passportId: student.passportId,
+      photoPathname: student.photoPathname,
+      currentSchoolId: studentPassport.currentSchoolId,
+      currentStudentId: studentPassport.currentStudentId,
+    })
     .from(student)
+    .innerJoin(studentPassport, eq(studentPassport.id, student.passportId))
     .where(and(eq(student.id, studentId), eq(student.schoolId, schoolId), isNull(student.deletedAt)))
-  return row ?? null
+    .limit(1)
+  if (!row) return null
+  if (row.currentSchoolId !== schoolId || row.currentStudentId !== studentId) {
+    await recordAudit({
+      action: 'student.edit_blocked',
+      entityType: 'student',
+      entityId: studentId,
+      schoolId,
+      actorUserId: userId,
+      metadata: { currentSchoolId: row.currentSchoolId },
+    })
+    return null
+  }
+  return row
+}
+
+async function assertEnrollmentOwner(schoolId: string, enrollmentId: string, userId: string) {
+  const [row] = await db
+    .select({
+      studentId: student.id,
+      currentSchoolId: studentPassport.currentSchoolId,
+      currentStudentId: studentPassport.currentStudentId,
+    })
+    .from(enrollment)
+    .innerJoin(student, and(eq(student.id, enrollment.studentId), eq(student.schoolId, enrollment.schoolId)))
+    .innerJoin(studentPassport, eq(studentPassport.id, student.passportId))
+    .where(
+      and(
+        eq(enrollment.id, enrollmentId),
+        eq(enrollment.schoolId, schoolId),
+        eq(enrollment.status, 'ACTIVE'),
+        isNull(student.deletedAt),
+      ),
+    )
+    .limit(1)
+  if (!row) return null
+  if (row.currentSchoolId !== schoolId || row.currentStudentId !== row.studentId) {
+    await recordAudit({
+      action: 'student.edit_blocked',
+      entityType: 'student',
+      entityId: row.studentId,
+      schoolId,
+      actorUserId: userId,
+      metadata: { operation: 'enrollment', currentSchoolId: row.currentSchoolId },
+    })
+    return null
+  }
+  return row
 }
 
 async function registrationTaken(schoolId: string, code: string | null | undefined, exceptId?: string) {
@@ -63,10 +120,19 @@ export async function createStudent(_: ActionState, formData: FormData): Promise
       return { ok: false, fieldErrors: { registrationCode: 'Já existe um aluno com esta matrícula.' } }
     }
 
-    const [row] = await db
-      .insert(student)
-      .values({ ...parsed.data, schoolId })
-      .returning({ id: student.id })
+    const passportId = randomUUID()
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(student)
+        .values({ ...parsed.data, schoolId, passportId })
+        .returning({ id: student.id })
+      await tx.insert(studentPassport).values({
+        id: passportId,
+        currentSchoolId: schoolId,
+        currentStudentId: created.id,
+      })
+      return created
+    })
     createdId = row.id
 
     await recordAudit({ action: 'student.created', entityType: 'student', entityId: row.id, schoolId, actorUserId: userId })
@@ -82,7 +148,7 @@ export async function updateStudent(_: ActionState, formData: FormData): Promise
     const { schoolId, userId } = await requireSchoolAction(MANAGE)
     const studentId = String(formData.get('studentId') ?? '')
     if (!UUID_RE.test(studentId)) return { ok: false, message: 'Aluno inválido.' }
-    const existing = await assertStudent(schoolId, studentId)
+    const existing = await assertStudent(schoolId, studentId, userId)
     if (!existing) return { ok: false, message: 'Aluno não encontrado.' }
 
     const parsed = studentInput.safeParse(formText(formData))
@@ -130,6 +196,32 @@ export async function archiveStudent(formData: FormData) {
     const { schoolId, userId } = await requireSchoolAction(MANAGE)
     const studentId = String(formData.get('studentId') ?? '')
     if (!UUID_RE.test(studentId)) return
+    const existing = await assertStudent(schoolId, studentId, userId)
+    if (!existing) return
+    if (existing.passportId) {
+      const [cancelledTransfer] = await db
+        .update(studentTransfer)
+        .set({ status: 'CANCELLED', resolvedBy: userId, resolvedAt: new Date() })
+        .where(
+          and(
+            eq(studentTransfer.passportId, existing.passportId),
+            eq(studentTransfer.fromSchoolId, schoolId),
+            eq(studentTransfer.fromStudentId, studentId),
+            eq(studentTransfer.status, 'PENDING'),
+          ),
+        )
+        .returning({ id: studentTransfer.id })
+      if (cancelledTransfer) {
+        await recordAudit({
+          action: 'student_transfer.cancelled',
+          entityType: 'student_passport',
+          entityId: existing.passportId,
+          schoolId,
+          actorUserId: userId,
+          metadata: { transferId: cancelledTransfer.id, reason: 'student.archived' },
+        })
+      }
+    }
     const updated = await db
       .update(student)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
@@ -155,7 +247,7 @@ export async function addParent(_: ActionState, formData: FormData): Promise<Act
     const parsed = parentInput.safeParse(formText(formData))
     if (!parsed.success) return { ok: false, fieldErrors: toFieldErrors(parsed.error) }
     const { studentId, relationship, ...data } = parsed.data
-    if (!(await assertStudent(schoolId, studentId))) return { ok: false, message: 'Aluno não encontrado.' }
+    if (!(await assertStudent(schoolId, studentId, userId))) return { ok: false, message: 'Aluno não encontrado.' }
 
     // Reaproveita responsável já cadastrado na escola (mesmo CPF ou e-mail), ex.: irmãos.
     let parentId: string | null = null
@@ -193,7 +285,7 @@ export async function unlinkParent(formData: FormData) {
   await runVoidAction('parent.unlink_failed', async () => {
     const { schoolId, userId } = await requireSchoolAction(MANAGE)
     if (!UUID_RE.test(studentId) || !UUID_RE.test(parentId)) return
-    if (!(await assertStudent(schoolId, studentId))) return
+    if (!(await assertStudent(schoolId, studentId, userId))) return
     await db.delete(studentParent).where(and(eq(studentParent.studentId, studentId), eq(studentParent.parentId, parentId)))
     await recordAudit({
       action: 'parent.unlinked',
@@ -218,6 +310,9 @@ export async function changeEnrollmentStatus(_: ActionState, formData: FormData)
     const parsed = enrollmentStatusInput.safeParse(formText(formData))
     if (!parsed.success) return { ok: false, fieldErrors: toFieldErrors(parsed.error) }
     const { enrollmentId, status, changedOn, note } = parsed.data
+    if (!(await assertEnrollmentOwner(schoolId, enrollmentId, userId))) {
+      return { ok: false, message: 'Matrícula ativa não encontrada.' }
+    }
 
     const [row] = await db
       .update(enrollment)
@@ -246,7 +341,7 @@ export async function enrollStudent(_: ActionState, formData: FormData): Promise
     const parsed = enrollmentInput.safeParse(formText(formData))
     if (!parsed.success) return { ok: false, fieldErrors: toFieldErrors(parsed.error) }
     const { studentId, classId, enrolledOn } = parsed.data
-    if (!(await assertStudent(schoolId, studentId))) return { ok: false, message: 'Aluno não encontrado.' }
+    if (!(await assertStudent(schoolId, studentId, userId))) return { ok: false, message: 'Aluno não encontrado.' }
 
     const [cls] = await db
       .select({ id: schoolClass.id, grade: schoolClass.grade, academicYearId: schoolClass.academicYearId, capacity: schoolClass.capacity })
@@ -314,6 +409,7 @@ export async function endEnrollment(formData: FormData) {
   await runVoidAction('enrollment.end_failed', async () => {
     const { schoolId, userId } = await requireSchoolAction(MANAGE)
     if (!UUID_RE.test(enrollmentId)) return
+    if (!(await assertEnrollmentOwner(schoolId, enrollmentId, userId))) return
     const [row] = await db
       .update(enrollment)
       .set({ status: 'CANCELLED', statusChangedOn: today(), statusNote: 'Retirado da turma', updatedAt: new Date() })
@@ -340,7 +436,7 @@ export async function uploadStudentDocument(_: ActionState, formData: FormData):
     const parsed = documentInput.safeParse(formText(formData))
     if (!parsed.success) return { ok: false, fieldErrors: toFieldErrors(parsed.error) }
     const { studentId, kind, label } = parsed.data
-    if (!(await assertStudent(schoolId, studentId))) return { ok: false, message: 'Aluno não encontrado.' }
+    if (!(await assertStudent(schoolId, studentId, userId))) return { ok: false, message: 'Aluno não encontrado.' }
 
     const file = getUploadedFile(formData, 'file')
     if (!file) return { ok: false, fieldErrors: { file: 'Selecione um arquivo.' } }
@@ -355,6 +451,11 @@ export async function uploadStudentDocument(_: ActionState, formData: FormData):
     } catch (e) {
       if (e instanceof UploadError) return { ok: false, fieldErrors: { file: e.message } }
       throw e
+    }
+
+    if (!(await assertStudent(schoolId, studentId, userId))) {
+      await removeStoredFile(stored.pathname)
+      return { ok: false, message: 'A escola não é mais responsável pelo cadastro deste aluno.' }
     }
 
     const [doc] = await db
@@ -390,6 +491,12 @@ export async function deleteStudentDocument(formData: FormData) {
   await runVoidAction('student_document.delete_failed', async () => {
     const { schoolId, userId } = await requireSchoolAction(MANAGE)
     if (!UUID_RE.test(documentId)) return
+    const [candidate] = await db
+      .select({ studentId: studentDocument.studentId })
+      .from(studentDocument)
+      .where(and(eq(studentDocument.id, documentId), eq(studentDocument.schoolId, schoolId), isNull(studentDocument.deletedAt)))
+      .limit(1)
+    if (!candidate || !(await assertStudent(schoolId, candidate.studentId, userId))) return
     const [doc] = await db
       .update(studentDocument)
       .set({ deletedAt: new Date() })

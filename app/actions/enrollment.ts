@@ -1,9 +1,29 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { schoolEnrollment, academicHistory } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { academicHistory, academicYear, schoolClass, schoolEnrollment } from "@/lib/db/schema";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { recordAudit } from "@/lib/audit";
+import { requireSchoolAction } from "@/lib/school-action";
+import { isCurrentPassportStudent } from "@/lib/student-passport-access";
+
+async function authorizeCurrentStudent(schoolId: string, studentId: string, operation: string) {
+    const { schoolId: activeSchoolId, userId } = await requireSchoolAction("school:manage_academic");
+    if (activeSchoolId !== schoolId) return { ok: false as const, error: "Escola inválida.", userId };
+    if (!(await isCurrentPassportStudent(activeSchoolId, studentId))) {
+        await recordAudit({
+            action: "student.edit_blocked",
+            entityType: "student",
+            entityId: studentId,
+            schoolId: activeSchoolId,
+            actorUserId: userId,
+            metadata: { operation },
+        });
+        return { ok: false as const, error: "Este período escolar é somente para leitura.", userId };
+    }
+    return { ok: true as const, schoolId: activeSchoolId, userId };
+}
 
 interface EnrollmentInput {
     schoolId: string;
@@ -22,9 +42,25 @@ export async function createEnrollment(data: EnrollmentInput) {
         if (!data.schoolId || !data.studentId || !data.academicYearId) {
             return { success: false, error: "Preencha todos os campos obrigatórios da matrícula." };
         }
+        const authorization = await authorizeCurrentStudent(data.schoolId, data.studentId, "enrollment.create");
+        if (!authorization.ok) return { success: false, error: authorization.error };
+        const [year] = await db
+            .select({ id: academicYear.id })
+            .from(academicYear)
+            .where(and(eq(academicYear.id, data.academicYearId), eq(academicYear.schoolId, authorization.schoolId), isNull(academicYear.deletedAt)))
+            .limit(1);
+        if (!year) return { success: false, error: "Ano letivo inválido para esta escola." };
+        if (data.classId) {
+            const [classRow] = await db
+                .select({ id: schoolClass.id })
+                .from(schoolClass)
+                .where(and(eq(schoolClass.id, data.classId), eq(schoolClass.schoolId, authorization.schoolId), isNull(schoolClass.deletedAt)))
+                .limit(1);
+            if (!classRow) return { success: false, error: "Turma inválida para esta escola." };
+        }
 
         const [newEnrollment] = await db.insert(schoolEnrollment).values({
-            schoolId: data.schoolId,
+            schoolId: authorization.schoolId,
             studentId: data.studentId,
             academicYearId: data.academicYearId,
             classId: data.classId || null,
@@ -60,6 +96,33 @@ export async function updateEnrollmentStatus(
     }
 ) {
     try {
+        const { schoolId: activeSchoolId, userId } = await requireSchoolAction("school:manage_academic");
+        if (activeSchoolId !== schoolId) return { success: false, error: "Escola inválida." };
+        const [enrollmentRow] = await db
+            .select({ studentId: schoolEnrollment.studentId })
+            .from(schoolEnrollment)
+            .where(and(eq(schoolEnrollment.id, enrollmentId), eq(schoolEnrollment.schoolId, activeSchoolId)))
+            .limit(1);
+        if (!enrollmentRow) return { success: false, error: "Matrícula não encontrada." };
+        if (!(await isCurrentPassportStudent(activeSchoolId, enrollmentRow.studentId))) {
+            await recordAudit({
+                action: "student.edit_blocked",
+                entityType: "student",
+                entityId: enrollmentRow.studentId,
+                schoolId: activeSchoolId,
+                actorUserId: userId,
+                metadata: { operation: "enrollment.update" },
+            });
+            return { success: false, error: "Este período escolar é somente para leitura." };
+        }
+        if (updates.classId) {
+            const [classRow] = await db
+                .select({ id: schoolClass.id })
+                .from(schoolClass)
+                .where(and(eq(schoolClass.id, updates.classId), eq(schoolClass.schoolId, activeSchoolId), isNull(schoolClass.deletedAt)))
+                .limit(1);
+            if (!classRow) return { success: false, error: "Turma inválida para esta escola." };
+        }
         const updateData: any = { updatedAt: new Date() };
 
         if (updates.status) updateData.status = updates.status;
@@ -75,7 +138,7 @@ export async function updateEnrollmentStatus(
         const [updated] = await db
             .update(schoolEnrollment)
             .set(updateData)
-            .where(and(eq(schoolEnrollment.id, enrollmentId), eq(schoolEnrollment.schoolId, schoolId)))
+            .where(and(eq(schoolEnrollment.id, enrollmentId), eq(schoolEnrollment.schoolId, activeSchoolId)))
             .returning();
 
         if (!updated) {
@@ -105,8 +168,16 @@ export async function createAcademicHistoryRecord(data: {
     notes?: string;
 }) {
     try {
+        const authorization = await authorizeCurrentStudent(data.schoolId, data.studentId, "academic_history.create");
+        if (!authorization.ok) return { success: false, error: authorization.error };
+        const [year] = await db
+            .select({ id: academicYear.id })
+            .from(academicYear)
+            .where(and(eq(academicYear.id, data.academicYearId), eq(academicYear.schoolId, authorization.schoolId), isNull(academicYear.deletedAt)))
+            .limit(1);
+        if (!year) return { success: false, error: "Ano letivo inválido para esta escola." };
         const [historyRecord] = await db.insert(academicHistory).values({
-            schoolId: data.schoolId,
+            schoolId: authorization.schoolId,
             studentId: data.studentId,
             academicYearId: data.academicYearId,
             gradeLevel: data.gradeLevel,

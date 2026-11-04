@@ -30,6 +30,7 @@ import {
 } from '@/lib/occurrence-queries'
 import { can, type Role } from '@/lib/rbac'
 import { requireSchoolAction, runAction, runVoidAction, UUID_RE } from '@/lib/school-action'
+import { isCurrentPassportStudent } from '@/lib/student-passport-access'
 import { formText, toFieldErrors, type ActionState } from '@/lib/validation'
 import { z } from 'zod'
 
@@ -181,6 +182,17 @@ export async function createOccurrence(_: ActionState, formData: FormData): Prom
     if (!(await studentInScope(schoolId, studentId, scope))) {
       return { ok: false, message: 'Você não pode registrar ocorrência para este aluno.' }
     }
+    if (!(await isCurrentPassportStudent(schoolId, studentId))) {
+      await recordAudit({
+        action: 'student.edit_blocked',
+        entityType: 'student',
+        entityId: studentId,
+        schoolId,
+        actorUserId: userId,
+        metadata: { operation: 'occurrence.create' },
+      })
+      return { ok: false, message: 'Este período escolar é somente para leitura.' }
+    }
 
     const roster = await listDisciplineStudents(schoolId, scope)
     const picked = roster.find((r) => r.studentId === studentId)
@@ -286,6 +298,17 @@ function severityLabel(severity: string) {
 async function assertCanMutate(schoolId: string, id: string, userId: string, role: Role | null | undefined) {
   const row = await getOccurrence(schoolId, id)
   if (!row) return { error: 'Ocorrência não encontrada.' as const, row: null }
+  if (!(await isCurrentPassportStudent(schoolId, row.studentId))) {
+    await recordAudit({
+      action: 'student.edit_blocked',
+      entityType: 'student',
+      entityId: row.studentId,
+      schoolId,
+      actorUserId: userId,
+      metadata: { operation: 'occurrence.update' },
+    })
+    return { error: 'Este período escolar é somente para leitura.' as const, row: null }
+  }
   const all = can(role, 'school:manage_all_discipline')
   if (!all && row.recordedByUserId !== userId) {
     return { error: 'Somente a coordenação ou quem registrou pode alterar esta ocorrência.' as const, row: null }

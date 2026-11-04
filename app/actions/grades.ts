@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { recordAudit } from '@/lib/audit'
 import { db } from '@/lib/db'
-import { assessment, assessmentScore, enrollment, school, scoreChange } from '@/lib/db/schema'
+import { assessment, assessmentScore, enrollment, school, scoreChange, student, studentPassport } from '@/lib/db/schema'
 import { getAssessment, getClassSubjectForGrading, gradeScope } from '@/lib/grade-queries'
 import { requireSchoolAction, runAction, runVoidAction, UUID_RE } from '@/lib/school-action'
 import {
@@ -128,13 +128,17 @@ export async function saveScores(_: ActionState, formData: FormData): Promise<Ac
 
     // Só alunos com matrícula ativa nesta turma e escola.
     const active = await db
-      .select({ id: enrollment.id, studentId: enrollment.studentId })
+      .select({ id: enrollment.id, studentId: student.id })
       .from(enrollment)
+      .innerJoin(student, and(eq(student.id, enrollment.studentId), eq(student.schoolId, enrollment.schoolId)))
+      .innerJoin(studentPassport, eq(studentPassport.id, student.passportId))
       .where(
         and(
           eq(enrollment.schoolId, schoolId),
           eq(enrollment.classId, a.classId),
           eq(enrollment.status, 'ACTIVE'),
+          eq(studentPassport.currentSchoolId, schoolId),
+          eq(studentPassport.currentStudentId, student.id),
           inArray(enrollment.id, entries.map((e) => e.enrollmentId)),
         ),
       )

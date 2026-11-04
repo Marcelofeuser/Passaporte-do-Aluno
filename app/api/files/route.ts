@@ -1,5 +1,8 @@
 import { get } from '@vercel/blob'
+import { and, eq, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { student, studentDocument, studentPassport } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
 import { can } from '@/lib/rbac'
 import { getAppContext, roleInSchool } from '@/lib/session'
@@ -19,9 +22,38 @@ export async function GET(request: NextRequest) {
   const ctx = await getAppContext()
   if (!ctx) return new NextResponse('Unauthorized', { status: 401 })
 
-  const role = roleInSchool(ctx, schoolId)
-  const allowed = area === 'branding' ? Boolean(role) : can(role, 'school:view_students')
-  if (!allowed) return new NextResponse('Forbidden', { status: 403 })
+  if (area === 'branding') {
+    if (!roleInSchool(ctx, schoolId)) return new NextResponse('Forbidden', { status: 403 })
+  } else {
+    const sourceAllowed = can(roleInSchool(ctx, schoolId), 'school:view_students')
+    const [document] = await db
+      .select({ currentSchoolId: studentPassport.currentSchoolId })
+      .from(studentDocument)
+      .innerJoin(student, and(eq(student.id, studentDocument.studentId), eq(student.schoolId, studentDocument.schoolId)))
+      .leftJoin(studentPassport, eq(studentPassport.id, student.passportId))
+      .where(
+        and(
+          eq(studentDocument.pathname, pathname),
+          eq(studentDocument.schoolId, schoolId),
+          isNull(studentDocument.deletedAt),
+        ),
+      )
+      .limit(1)
+
+    const [photo] = document
+      ? []
+      : await db
+          .select({ currentSchoolId: studentPassport.currentSchoolId })
+          .from(student)
+          .leftJoin(studentPassport, eq(studentPassport.id, student.passportId))
+          .where(and(eq(student.photoPathname, pathname), eq(student.schoolId, schoolId)))
+          .limit(1)
+
+    const ownerSchoolId = document?.currentSchoolId ?? photo?.currentSchoolId
+    const ownerAllowed = Boolean(ownerSchoolId && can(roleInSchool(ctx, ownerSchoolId), 'school:view_students'))
+    if (!sourceAllowed && !ownerAllowed) return new NextResponse('Forbidden', { status: 403 })
+    if (!document && !photo) return new NextResponse('Not found', { status: 404 })
+  }
 
   try {
     const result = await get(pathname, {
