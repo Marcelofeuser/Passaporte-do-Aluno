@@ -1,10 +1,12 @@
 import { betterAuth } from 'better-auth'
+import { twoFactor } from 'better-auth/plugins'
 import { db, pool } from '@/lib/db'
 import { recordAudit } from '@/lib/audit'
 import { logger } from '@/lib/logger'
 
 export const auth = betterAuth({
   database: pool,
+  plugins: [twoFactor({ issuer: 'Passaporte do Aluno' })],
   baseURL:
     process.env.BETTER_AUTH_URL ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
