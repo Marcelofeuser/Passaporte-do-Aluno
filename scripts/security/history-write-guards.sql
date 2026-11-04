@@ -47,7 +47,7 @@ VALUES ('00000000-0000-4000-8000-000000000704', '00000000-0000-4000-8000-0000000
 INSERT INTO occurrence_change (id, school_id, occurrence_id, reason)
 VALUES ('00000000-0000-4000-8000-000000000705', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000701', 'Correção anterior');
 
-DO $
+DO $$
 BEGIN
   IF (SELECT count(*) FROM school_membership WHERE role = 'SUPER_ADMIN' AND deleted_at IS NULL) <> 1 THEN
     RAISE EXCEPTION 'Expected exactly one active Super Admin membership';
@@ -61,9 +61,9 @@ BEGIN
     RAISE EXCEPTION 'Approved Super Admin membership is missing';
   END IF;
 END;
-$;
+$$;
 
-DO $
+DO $$
 DECLARE
   v_passport_id uuid;
 BEGIN
