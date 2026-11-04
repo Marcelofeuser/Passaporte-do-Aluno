@@ -59,6 +59,18 @@ SET deleted_at = now(),
 FROM ranked
 WHERE sm.id = ranked.id AND ranked.position > 1;
 
+INSERT INTO school_membership (user_id, school_id, role)
+SELECT u.id, NULL, 'SUPER_ADMIN'
+FROM "user" u
+WHERE lower(u.email) = lower('MarceloFeuser.go@gmail.com')
+  AND NOT EXISTS (
+    SELECT 1 FROM school_membership sm
+    WHERE sm.user_id = u.id
+      AND sm.role = 'SUPER_ADMIN'
+      AND sm.school_id IS NULL
+      AND sm.deleted_at IS NULL
+  );
+
 CREATE OR REPLACE FUNCTION pa_guard_super_admin_identity()
 RETURNS trigger
 LANGUAGE plpgsql
