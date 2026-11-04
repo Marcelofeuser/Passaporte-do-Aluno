@@ -6,6 +6,20 @@ import type { ActionState } from '@/lib/validation'
 
 export type PassportAction = (state: ActionState, formData: FormData) => Promise<ActionState>
 
+const correctionSupportHref =
+  'mailto:suporte@passaportedoaluno.com' +
+  '?subject=' +
+  encodeURIComponent('Solicitação de correção de histórico escolar') +
+  '&body=' +
+  encodeURIComponent(
+    'Instituição que realizou o lançamento:\n' +
+      'Identificação do aluno/passaporte:\n' +
+      'Registro original e data:\n' +
+      'Alteração solicitada:\n' +
+      'Motivo e comprovação do erro:\n' +
+      'Declaração assinada pelo diretor atual da instituição que realizou o lançamento e autenticada pelo GOV.br: anexada.\n',
+  )
+
 export type PassportRecord = {
   id: string
   dateLabel: string
@@ -170,6 +184,31 @@ export function StudentPassportSection({
             ))}
           </ol>
         )}
+      </Card>
+
+      <Card
+        title="Como solicitar correção de um registro antigo"
+        description="O histórico escolar não pode ser editado pela escola anterior, pelo aluno, por professores ou pela direção."
+      >
+        <div className="flex flex-col gap-3 p-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            O responsável pelo aluno deve procurar a instituição que fez o lançamento e pedir que ela abra um chamado
+            com o suporte. A solicitação deve indicar o registro original, a alteração desejada, o motivo e a
+            comprovação do erro. É obrigatória uma declaração assinada pelo diretor atual dessa instituição e
+            autenticada pelo GOV.br. O registro original permanece preservado; uma correção aprovada deve ser
+            acrescentada ao histórico com trilha de auditoria.
+          </p>
+          <a
+            href={correctionSupportHref}
+            className="w-fit text-sm font-semibold text-primary hover:underline"
+          >
+            Preparar e-mail para o suporte
+          </a>
+          <p className="text-xs text-muted-foreground">
+            Anexe a declaração autenticada e as provas antes de enviar. Este link apenas prepara o e-mail; ele não
+            envia a solicitação nem valida documentos automaticamente.
+          </p>
+        </div>
       </Card>
     </section>
   )
