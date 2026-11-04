@@ -114,10 +114,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
               Esqueci minha senha
             </Link>
             <p className="text-muted-foreground">
-              Ainda não tem conta?{' '}
-              <Link href="/sign-up" className="font-semibold text-primary underline-offset-4 hover:underline">
-                Criar conta
-              </Link>
+              O acesso é criado pela administração da instituição. Solicite seu cadastro à escola.
             </p>
           </>
         )}
