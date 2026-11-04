@@ -3,6 +3,7 @@
 import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { recordAudit } from '@/lib/audit'
+import { isCurrentPassportStudent } from '@/lib/student-passport-access'
 import { db } from '@/lib/db'
 import {
   academicYear,
@@ -12,6 +13,7 @@ import {
   notification,
   school,
   schoolClass,
+  student,
   studentAttendance,
 } from '@/lib/db/schema'
 import { ATTENDANCE_STATUS, isAttendanceStatus, isISODate, todayISO, type AttendanceStatus } from '@/lib/attendance'
@@ -63,8 +65,16 @@ export async function saveAttendance(_: ActionState, formData: FormData): Promis
       return { ok: false, fieldErrors: { heldOn: 'A data está fora do ano letivo da turma.' } }
     }
 
-    const roster = await getRosterOn(schoolId, cs.classId, heldOn)
-    if (roster.length === 0) return { ok: false, message: 'Nenhum aluno matriculado nesta turma na data.' }
+    const rosterRows = await getRosterOn(schoolId, cs.classId, heldOn)
+    const editableIds = new Set(
+      (
+        await Promise.all(
+          rosterRows.map(async (row) => (await isCurrentPassportStudent(schoolId, row.studentId) ? row.studentId : null)),
+        )
+      ).filter((id): id is string => Boolean(id)),
+    )
+    const roster = rosterRows.filter((row) => editableIds.has(row.studentId))
+    if (roster.length === 0) return { ok: false, message: 'Nenhum aluno sob responsabilidade atual nesta turma e data.' }
 
     const statuses = new Map<string, AttendanceStatus>()
     for (const r of roster) {
@@ -261,8 +271,23 @@ export interface BatchAttendanceInput {
  */
 export async function recordAttendance(data: AttendanceInput | BatchAttendanceInput) {
   try {
-    if (!data.schoolId || !data.date) {
+    const { schoolId: authorizedSchoolId, userId } = await requireSchoolAction('school:manage_all_attendance')
+    if (!data.schoolId || !data.date || data.schoolId !== authorizedSchoolId) {
       return { success: false, error: 'Escola e data são obrigatórias para registro de frequência.' }
+    }
+    const studentIds = 'records' in data ? data.records.map((record) => record.studentId) : [data.studentId]
+    for (const studentId of new Set(studentIds)) {
+      if (!(await isCurrentPassportStudent(authorizedSchoolId, studentId))) {
+        await recordAudit({
+          action: 'student.edit_blocked',
+          entityType: 'student',
+          entityId: studentId,
+          schoolId: authorizedSchoolId,
+          actorUserId: userId,
+          metadata: { operation: 'attendance.record' },
+        })
+        return { success: false, error: 'O aluno não está sob responsabilidade atual desta escola.' }
+      }
     }
 
     // Se for lote
@@ -369,9 +394,16 @@ export async function recordAttendance(data: AttendanceInput | BatchAttendanceIn
  */
 export async function getStudentAttendanceSummary(studentId: string, schoolId: string) {
   try {
-    if (!studentId || !schoolId) {
-      return { success: false, error: 'studentId e schoolId são obrigatórios.' }
+    const { schoolId: authorizedSchoolId } = await requireSchoolAction('school:manage_all_attendance')
+    if (!studentId || !schoolId || schoolId !== authorizedSchoolId) {
+      return { success: false, error: 'Aluno e escola são obrigatórios.' }
     }
+    const [localStudent] = await db
+      .select({ id: student.id })
+      .from(student)
+      .where(and(eq(student.id, studentId), eq(student.schoolId, authorizedSchoolId)))
+      .limit(1)
+    if (!localStudent) return { success: false, error: 'Aluno não encontrado nesta escola.' }
 
     const records = await db
       .select({

@@ -2,24 +2,17 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { academicYear, schoolClass, schoolEnrollment, student } from '@/lib/db/schema'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
 import { BackLink } from '@/components/school/form-fields'
 import { formatDate, requireSchoolPage } from '@/lib/school-page'
 
 export const metadata: Metadata = { title: 'Gestão de Matrículas' }
 
-interface PageProps {
-  searchParams: Promise<{ schoolId?: string }>
-}
+export default async function SchoolEnrollmentsPage() {
+  const { schoolId } = await requireSchoolPage('school:view_students')
 
-export default async function SchoolEnrollmentsPage({ searchParams }: PageProps) {
-  const { schoolId: defaultSchoolId } = await requireSchoolPage('school:view_students')
-  const params = await searchParams
-  const schoolId = params.schoolId || defaultSchoolId
-
-  const enrollments = schoolId
-    ? await db
+  const enrollments = await db
         .select({
           id: schoolEnrollment.id,
           status: schoolEnrollment.status,
@@ -34,12 +27,11 @@ export default async function SchoolEnrollmentsPage({ searchParams }: PageProps)
           year: academicYear.year,
         })
         .from(schoolEnrollment)
-        .leftJoin(student, eq(schoolEnrollment.studentId, student.id))
-        .leftJoin(schoolClass, eq(schoolEnrollment.classId, schoolClass.id))
-        .leftJoin(academicYear, eq(schoolEnrollment.academicYearId, academicYear.id))
+        .leftJoin(student, and(eq(schoolEnrollment.studentId, student.id), eq(schoolEnrollment.schoolId, student.schoolId)))
+        .leftJoin(schoolClass, and(eq(schoolEnrollment.classId, schoolClass.id), eq(schoolEnrollment.schoolId, schoolClass.schoolId)))
+        .leftJoin(academicYear, and(eq(schoolEnrollment.academicYearId, academicYear.id), eq(schoolEnrollment.schoolId, academicYear.schoolId)))
         .where(eq(schoolEnrollment.schoolId, schoolId))
         .orderBy(desc(schoolEnrollment.createdAt))
-    : []
 
   const pendingCount = enrollments.filter((e) => e.status === 'pending').length
   const activeCount = enrollments.filter((e) => e.status === 'active').length

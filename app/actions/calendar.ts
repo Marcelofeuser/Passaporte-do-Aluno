@@ -3,7 +3,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { appointment, appointmentSlot, calendarEvent, calendarEventType, schoolDay } from '@/lib/db/schema'
+import { appointment, appointmentSlot, calendarEvent, calendarEventType, parent, schoolDay, student, studentParent, studentPassport } from '@/lib/db/schema'
 import { isCalendarAudience, isoDate } from '@/lib/calendar'
 import { requireSchoolAction, runAction, UUID_RE } from '@/lib/school-action'
 import type { ActionState } from '@/lib/validation'
@@ -76,16 +76,46 @@ export async function bookAppointment(_: ActionState, formData: FormData): Promi
     const slotId = value(formData, 'slotId')
     const studentId = value(formData, 'studentId')
     if (!UUID_RE.test(slotId) || !UUID_RE.test(studentId)) return { ok: false, message: 'Horário ou aluno inválido.' }
+    let belongsToFamily = false
+    if (ctx.active?.role === 'STUDENT') {
+      const [ownedStudent] = await db
+        .select({ id: student.id })
+        .from(student)
+        .innerJoin(studentPassport, eq(studentPassport.id, student.passportId))
+        .where(and(eq(student.id, studentId), eq(student.schoolId, schoolId), eq(student.userId, userId), eq(studentPassport.currentSchoolId, schoolId), eq(studentPassport.currentStudentId, studentId), isNull(student.deletedAt)))
+        .limit(1)
+      belongsToFamily = Boolean(ownedStudent)
+    } else if (ctx.active?.role === 'PARENT') {
+      const [linkedStudent] = await db
+        .select({ id: student.id })
+        .from(student)
+        .innerJoin(studentPassport, eq(studentPassport.id, student.passportId))
+        .innerJoin(studentParent, eq(studentParent.studentId, student.id))
+        .innerJoin(parent, eq(parent.id, studentParent.parentId))
+        .where(and(eq(student.id, studentId), eq(student.schoolId, schoolId), eq(studentPassport.currentSchoolId, schoolId), eq(studentPassport.currentStudentId, studentId), eq(parent.schoolId, schoolId), eq(parent.userId, userId), isNull(student.deletedAt), isNull(parent.deletedAt)))
+        .limit(1)
+      belongsToFamily = Boolean(linkedStudent)
+    }
+    if (!belongsToFamily) return { ok: false, message: 'Este aluno não está vinculado à sua conta nesta escola.' }
+
     const result = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${schoolId}:${slotId}`}, 0))`)
-      const [slot] = await tx.select({ capacity: appointmentSlot.capacity }).from(appointmentSlot).where(and(eq(appointmentSlot.id, slotId), eq(appointmentSlot.schoolId, schoolId), isNull(appointmentSlot.deletedAt)))
+      const [slot] = await tx.select({ capacity: appointmentSlot.capacity, startsAt: appointmentSlot.startsAt }).from(appointmentSlot).where(and(eq(appointmentSlot.id, slotId), eq(appointmentSlot.schoolId, schoolId), isNull(appointmentSlot.deletedAt)))
       if (!slot) return 'missing'
+      if (slot.startsAt <= new Date()) return 'expired'
+      const [existing] = await tx.select({ id: appointment.id, status: appointment.status }).from(appointment).where(and(eq(appointment.schoolId, schoolId), eq(appointment.slotId, slotId), eq(appointment.studentId, studentId))).limit(1)
+      if (existing?.status === 'BOOKED') return 'duplicate'
       const [booked] = await tx.select({ n: sql<number>`count(*)::int` }).from(appointment).where(and(eq(appointment.slotId, slotId), eq(appointment.status, 'BOOKED')))
       if ((booked?.n ?? 0) >= slot.capacity) return 'full'
-      await tx.insert(appointment).values({ schoolId, slotId, studentId, bookedBy: ctx.user.id })
+      if (existing) {
+        if (existing.status !== 'CANCELLED') return 'duplicate'
+        await tx.update(appointment).set({ status: 'BOOKED', bookedBy: ctx.user.id, updatedAt: new Date() }).where(eq(appointment.id, existing.id))
+      } else {
+        await tx.insert(appointment).values({ schoolId, slotId, studentId, bookedBy: ctx.user.id })
+      }
       return 'ok'
     })
-    if (result !== 'ok') return { ok: false, message: result === 'full' ? 'Este horário já está lotado.' : 'Horário não encontrado.' }
+    if (result !== 'ok') return { ok: false, message: result === 'full' ? 'Este horário já está lotado.' : result === 'expired' ? 'Este horário já passou.' : result === 'duplicate' ? 'Este aluno já possui um agendamento neste horário.' : 'Horário não encontrado.' }
     refresh()
     return { ok: true, message: 'Atendimento agendado.' }
   })

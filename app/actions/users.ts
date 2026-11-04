@@ -1,10 +1,11 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { and, eq, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { notification, parent, school, schoolMembership, student, teacher, user } from '@/lib/db/schema'
+import { notification, parent, school, schoolMembership, student, studentPassport, teacher, user } from '@/lib/db/schema'
 import { recordAudit } from '@/lib/audit'
 import { logger } from '@/lib/logger'
 import { assignableRoles, can, ROLE_LABELS, type Role } from '@/lib/rbac'
@@ -32,8 +33,36 @@ async function ensureDomainProfile(role: Role, schoolId: string, userId: string,
     const exists = await db.select({ id: teacher.id }).from(teacher).where(where(teacher)).limit(1)
     if (!exists.length) await db.insert(teacher).values({ schoolId, userId, fullName, email })
   } else if (role === 'STUDENT') {
-    const exists = await db.select({ id: student.id }).from(student).where(where(student)).limit(1)
-    if (!exists.length) await db.insert(student).values({ schoolId, userId, fullName })
+    const [existing] = await db
+      .select({ id: student.id, passportId: student.passportId })
+      .from(student)
+      .where(where(student))
+      .limit(1)
+    if (!existing) {
+      const passportId = randomUUID()
+      const studentId = randomUUID()
+      await db.transaction(async (tx) => {
+        await tx.insert(studentPassport).values({
+          id: passportId,
+          currentSchoolId: schoolId,
+          currentStudentId: studentId,
+        })
+        await tx.insert(student).values({ id: studentId, schoolId, userId, fullName, passportId })
+      })
+    } else if (!existing.passportId) {
+      const passportId = randomUUID()
+      await db.transaction(async (tx) => {
+        await tx.insert(studentPassport).values({
+          id: passportId,
+          currentSchoolId: schoolId,
+          currentStudentId: existing.id,
+        })
+        await tx
+          .update(student)
+          .set({ passportId, updatedAt: new Date() })
+          .where(and(eq(student.id, existing.id), eq(student.schoolId, schoolId), isNull(student.passportId)))
+      })
+    }
   } else if (role === 'PARENT') {
     const exists = await db.select({ id: parent.id }).from(parent).where(where(parent)).limit(1)
     if (!exists.length) await db.insert(parent).values({ schoolId, userId, fullName, email })

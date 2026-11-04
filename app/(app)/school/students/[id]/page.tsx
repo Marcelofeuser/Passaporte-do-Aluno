@@ -11,7 +11,9 @@ import {
   updateStudent,
   uploadStudentDocument,
 } from '@/app/actions/students'
+import { cancelStudentTransfer, requestStudentTransfer } from '@/app/actions/student-transfers'
 import { ActionForm, ConfirmSubmit } from '@/components/school/action-form'
+import { StudentPassportSection } from '@/components/school/student-passport'
 import { AddressFields, BackLink, FileField, Textarea } from '@/components/school/form-fields'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
 import { Field, Input, Select } from '@/components/ui/field'
@@ -26,6 +28,7 @@ import {
   listClasses,
 } from '@/lib/school-queries'
 import { fileUrl } from '@/lib/storage'
+import { getStudentPassportHistory } from '@/lib/student-passport-queries'
 import { DOCUMENT_KINDS, ENROLLMENT_STATUS, RELATIONSHIPS, SEX_OPTIONS, SHIFTS } from '@/lib/validation'
 
 export const metadata: Metadata = { title: 'Ficha do aluno' }
@@ -33,17 +36,19 @@ export const metadata: Metadata = { title: 'Ficha do aluno' }
 export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!UUID_RE.test(id)) notFound()
-  const { schoolId, canManage } = await requireSchoolPage('school:view_students')
+  const { schoolId, canManage: canManageByRole } = await requireSchoolPage('school:view_students')
 
   const s = await getStudent(schoolId, id)
   if (!s) notFound()
   const currentYear = await getCurrentYear(schoolId)
-  const [parents, enrollments, documents, classes] = await Promise.all([
+  const [parents, enrollments, documents, classes, passport] = await Promise.all([
     getStudentParents(schoolId, id),
     getStudentEnrollments(schoolId, id),
     getStudentDocuments(schoolId, id),
     currentYear ? listClasses(schoolId, currentYear.id) : Promise.resolve([]),
+    getStudentPassportHistory(schoolId, id, canManageByRole),
   ])
+  const canManage = canManageByRole && passport?.isCurrentSchool === true
   const active = enrollments.find((e) => e.status === 'ACTIVE')
   const displayName = s.socialName ?? s.fullName
 
@@ -107,8 +112,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                       <input type="hidden" name="enrollmentId" value={e.id} />
                       <div className="grid gap-3 sm:grid-cols-3">
                         <Field label="Situação" htmlFor={`st-${e.id}`}>
-                          <Select id={`st-${e.id}`} name="status" required defaultValue="TRANSFERRED">
-                            <option value="TRANSFERRED">Transferida (saiu da escola)</option>
+                          <Select id={`st-${e.id}`} name="status" required defaultValue="COMPLETED">
                             <option value="COMPLETED">Concluída</option>
                             <option value="CANCELLED">Cancelada</option>
                           </Select>
@@ -155,6 +159,16 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           )
         ) : null}
       </Card>
+
+      <StudentPassportSection
+        studentId={id}
+        periods={passport?.periods ?? []}
+        isCurrentSchool={passport?.isCurrentSchool ?? false}
+        transferPending={passport?.transferPending ?? null}
+        transferSchools={passport?.transferSchools ?? []}
+        transferAction={canManage ? requestStudentTransfer : undefined}
+        cancelTransferAction={canManage ? cancelStudentTransfer : undefined}
+      />
 
       {/* Responsáveis */}
       <Card>

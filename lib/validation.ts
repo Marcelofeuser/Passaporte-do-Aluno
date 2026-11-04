@@ -195,9 +195,12 @@ export const ENROLLMENT_STATUS = {
 
 export const enrollmentInput = z.object({ studentId: id, classId: id, enrolledOn: optionalDate })
 
+export const studentTransferInput = z.object({ studentId: id, destinationSchoolId: id })
+export const studentTransferDecisionInput = z.object({ transferId: id })
+
 export const enrollmentStatusInput = z.object({
   enrollmentId: id,
-  status: z.enum(['TRANSFERRED', 'COMPLETED', 'CANCELLED'], 'Situação inválida'),
+  status: z.enum(['COMPLETED', 'CANCELLED'], 'Situação inválida'),
   changedOn: optionalDate,
   note: optionalText(300),
 })

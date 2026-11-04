@@ -1,0 +1,64 @@
+name: Typecheck
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - v0/cleanup-project
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  database-history-guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: passaporte_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d passaporte_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: passaporte_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Create baseline schema
+        run: psql -v ON_ERROR_STOP=1 -f scripts/security/history-schema-fixture.sql
+      - name: Apply passport and immutability migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f migrations/0012_student_passport.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/0013_student_history_immutability.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/0014_super_admin_and_authenticator_security.sql
+      - name: Verify transfer ownership and historical write guards
+        run: psql -v ON_ERROR_STOP=1 -f scripts/security/history-write-guards.sql

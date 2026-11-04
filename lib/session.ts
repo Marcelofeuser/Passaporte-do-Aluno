@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { school, schoolMembership } from '@/lib/db/schema'
+import { school, schoolMembership, user, userSecurity } from '@/lib/db/schema'
+import { isApprovedSuperAdminEmail } from '@/lib/super-admin'
 import { can, isRole, type Permission, type Role } from '@/lib/rbac'
 
 export const ACTIVE_MEMBERSHIP_COOKIE = 'pa_active_membership'
@@ -20,6 +21,7 @@ export type AppContext = {
   user: { id: string; name: string; email: string }
   memberships: Membership[]
   active: Membership | null
+  securitySetupRequired: boolean
 }
 
 export class AuthorizationError extends Error {
@@ -33,7 +35,7 @@ export const getSession = cache(async () => {
   return auth.api.getSession({ headers: await headers() })
 })
 
-export async function getUserMemberships(userId: string): Promise<Membership[]> {
+export async function getUserMemberships(userId: string, email: string): Promise<Membership[]> {
   const rows = await db
     .select({
       id: schoolMembership.id,
@@ -49,6 +51,7 @@ export async function getUserMemberships(userId: string): Promise<Membership[]> 
 
   return rows
     .filter((r) => isRole(r.role) && (r.schoolId === null || r.schoolDeletedAt === null))
+    .filter((r) => r.role !== 'SUPER_ADMIN' || (isApprovedSuperAdminEmail(email) && r.schoolId === null))
     .map((r) => ({
       id: r.id,
       role: r.role as Role,
@@ -62,7 +65,16 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
   const session = await getSession()
   if (!session?.user) return null
 
-  const memberships = await getUserMemberships(session.user.id)
+  const [security] = await db
+    .select({ twoFactorEnabled: user.twoFactorEnabled, mustChangePassword: userSecurity.mustChangePassword })
+    .from(user)
+    .leftJoin(userSecurity, eq(userSecurity.userId, user.id))
+    .where(eq(user.id, session.user.id))
+    .limit(1)
+  const securitySetupRequired =
+    isApprovedSuperAdminEmail(session.user.email) &&
+    (!security?.twoFactorEnabled || Boolean(security.mustChangePassword))
+  const memberships = securitySetupRequired ? [] : await getUserMemberships(session.user.id, session.user.email)
   const preferred = (await cookies()).get(ACTIVE_MEMBERSHIP_COOKIE)?.value
   const active = memberships.find((m) => m.id === preferred) ?? memberships[0] ?? null
 
@@ -70,6 +82,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     user: { id: session.user.id, name: session.user.name, email: session.user.email },
     memberships,
     active,
+    securitySetupRequired,
   }
 })
 
@@ -77,6 +90,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
 export async function requirePageContext() {
   const ctx = await getAppContext()
   if (!ctx) redirect('/sign-in')
+  if (ctx.securitySetupRequired) redirect('/account/security-setup')
   return ctx
 }
 
@@ -91,11 +105,12 @@ export async function requirePagePermission(permission: Permission) {
 export async function requireActionContext() {
   const ctx = await getAppContext()
   if (!ctx) throw new AuthorizationError('Sessão expirada. Entre novamente.')
+  if (ctx.securitySetupRequired) throw new AuthorizationError('Conclua a troca de senha e a configuração do autenticador.')
   return ctx
 }
 
 export function isSuperAdmin(ctx: AppContext) {
-  return ctx.memberships.some((m) => m.role === 'SUPER_ADMIN')
+  return isApprovedSuperAdminEmail(ctx.user.email) && ctx.memberships.some((m) => m.role === 'SUPER_ADMIN' && m.schoolId === null)
 }
 
 /**

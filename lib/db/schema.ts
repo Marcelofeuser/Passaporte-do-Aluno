@@ -1,6 +1,8 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -21,6 +23,7 @@ export const user = pgTable('user', {
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   emailVerified: boolean('emailVerified').notNull().default(false),
+  twoFactorEnabled: boolean('twoFactorEnabled').notNull().default(false),
   image: text('image'),
   createdAt: timestamp('createdAt', tz).notNull().defaultNow(),
   updatedAt: timestamp('updatedAt', tz).notNull().defaultNow(),
@@ -55,6 +58,23 @@ export const account = pgTable('account', {
   password: text('password'),
   createdAt: timestamp('createdAt', tz).notNull().defaultNow(),
   updatedAt: timestamp('updatedAt', tz).notNull().defaultNow(),
+})
+
+export const twoFactor = pgTable('twoFactor', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  secret: text('secret').notNull(),
+  backupCodes: text('backupCodes').notNull(),
+  verified: boolean('verified').notNull().default(false),
+  failedVerificationCount: integer('failedVerificationCount').notNull().default(0),
+  lockedUntil: timestamp('lockedUntil', tz),
+})
+
+export const userSecurity = pgTable('user_security', {
+  userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
+  bootstrapPasswordIssuedAt: timestamp('bootstrap_password_issued_at', tz),
+  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
 })
 
 export const verification = pgTable('verification', {
@@ -197,25 +217,75 @@ export const appointment = pgTable('appointment', {
   updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
 })
 
-export const student = pgTable('student', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  schoolId: uuid('school_id').notNull(),
-  userId: text('user_id'),
-  fullName: text('full_name').notNull(),
-  socialName: text('social_name'),
-  birthDate: date('birth_date'),
-  registrationCode: text('registration_code'),
-  sex: text('sex'),
-  cpf: text('cpf'),
-  photoPathname: text('photo_pathname'),
-  email: text('email'),
-  phone: text('phone'),
-  ...address(),
-  notes: text('notes'),
-  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
-  deletedAt: timestamp('deleted_at', tz),
-})
+export const student = pgTable(
+  'student',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    passportId: uuid('passport_id').notNull(),
+    userId: text('user_id'),
+    fullName: text('full_name').notNull(),
+    socialName: text('social_name'),
+    birthDate: date('birth_date'),
+    registrationCode: text('registration_code'),
+    sex: text('sex'),
+    cpf: text('cpf'),
+    photoPathname: text('photo_pathname'),
+    email: text('email'),
+    phone: text('phone'),
+    ...address(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', tz),
+  },
+  (t) => [
+    index('idx_student_passport_id').on(t.passportId),
+    uniqueIndex('idx_student_passport_school')
+      .on(t.passportId, t.schoolId)
+      .where(sql`${t.passportId} IS NOT NULL`),
+  ],
+)
+
+export const studentPassport = pgTable(
+  'student_passport',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    currentSchoolId: uuid('current_school_id').notNull(),
+    currentStudentId: uuid('current_student_id').notNull(),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', tz).notNull().defaultNow(),
+  },
+  (t) => [
+    index('idx_student_passport_current_school').on(t.currentSchoolId),
+    index('idx_student_passport_current_student').on(t.currentStudentId),
+  ],
+)
+
+export const studentTransfer = pgTable(
+  'student_transfer',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    passportId: uuid('passport_id').notNull(),
+    fromSchoolId: uuid('from_school_id').notNull(),
+    toSchoolId: uuid('to_school_id').notNull(),
+    fromStudentId: uuid('from_student_id').notNull(),
+    toStudentId: uuid('to_student_id'),
+    status: text('status').notNull().default('PENDING'),
+    requestedBy: text('requested_by').notNull(),
+    resolvedBy: text('resolved_by'),
+    requestedAt: timestamp('requested_at', tz).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', tz),
+  },
+  (t) => [
+    index('idx_student_transfer_to_status').on(t.toSchoolId, t.status, t.requestedAt.desc()),
+    index('idx_student_transfer_from_school').on(t.fromSchoolId, t.status),
+    index('idx_student_transfer_passport').on(t.passportId, t.requestedAt.desc()),
+    uniqueIndex('idx_student_transfer_one_pending_passport')
+      .on(t.passportId)
+      .where(sql`${t.status} = 'PENDING'`),
+  ],
+)
 
 export const parent = pgTable('parent', {
   id: uuid('id').primaryKey().defaultRandom(),
