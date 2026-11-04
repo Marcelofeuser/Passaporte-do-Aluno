@@ -28,8 +28,10 @@ SELECT id, true
 FROM "user"
 WHERE lower(email) = lower('MarceloFeuser.go@gmail.com')
 ON CONFLICT (user_id) DO UPDATE
-SET must_change_password = true,
-    bootstrap_password_issued_at = NULL,
+SET must_change_password = CASE
+      WHEN user_security.bootstrap_password_issued_at IS NULL THEN true
+      ELSE user_security.must_change_password
+    END,
     updated_at = now();
 
 -- Existing Super Admin memberships outside the approved identity lose the role.
