@@ -8,7 +8,7 @@ INSERT INTO class (id, school_id, name) VALUES
 INSERT INTO academic_year (id, school_id, name) VALUES
   ('00000000-0000-4000-8000-000000000302', '00000000-0000-4000-8000-000000000001', 'Ano antigo');
 INSERT INTO class_subject (id, school_id, teacher_id) VALUES
-  ('00000000-0000-4000-8000-000000000303', '00000000-0000-4000-8000-000000000001', 'professor-1');
+  ('00000000-0000-4000-8000-000000000303', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000099');
 INSERT INTO subject (id, school_id, name) VALUES
   ('00000000-0000-4000-8000-000000000304', '00000000-0000-4000-8000-000000000001', 'Matemática');
 INSERT INTO occurrence_type (id, school_id, name) VALUES
@@ -106,7 +106,7 @@ SELECT pg_temp.assert_blocked($q$UPDATE assessment SET max_score = 20 WHERE id =
 SELECT pg_temp.assert_blocked($q$UPDATE attendance_session SET content = 'alterado' WHERE id = '00000000-0000-4000-8000-000000000603'$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE class SET name = 'alterada' WHERE id = '00000000-0000-4000-8000-000000000301'$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE academic_year SET name = 'alterado' WHERE id = '00000000-0000-4000-8000-000000000302'$q$);
-SELECT pg_temp.assert_blocked($q$UPDATE class_subject SET teacher_id = 'outro-professor' WHERE id = '00000000-0000-4000-8000-000000000303'$q$);
+SELECT pg_temp.assert_blocked($q$UPDATE class_subject SET teacher_id = '00000000-0000-4000-8000-000000000098' WHERE id = '00000000-0000-4000-8000-000000000303'$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE subject SET name = 'outra' WHERE id = '00000000-0000-4000-8000-000000000304'$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE occurrence_type SET name = 'alterado' WHERE id = '00000000-0000-4000-8000-000000000305'$q$);
 SELECT pg_temp.assert_blocked($q$UPDATE score_change SET reason = 'alterado' WHERE id = '00000000-0000-4000-8000-000000000703'$q$);
