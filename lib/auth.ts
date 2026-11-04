@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger'
 
 export const auth = betterAuth({
   database: pool,
-  plugins: [twoFactor({ issuer: 'Passaporte do Aluno' })],
+  plugins: [twoFactor({ issuer: 'Passaporte do Aluno', backupCodeOptions: { storeBackupCodes: 'encrypted' } })],
   baseURL:
     process.env.BETTER_AUTH_URL ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
