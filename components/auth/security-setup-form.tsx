@@ -8,7 +8,6 @@ import { completeInitialPasswordChange } from '@/app/actions/security'
 export function SecuritySetupForm({ mustChangePassword }: { mustChangePassword: boolean }) {
   const router = useRouter()
   const [mustChange, setMustChange] = useState(mustChangePassword)
-  const [authenticatorPassword, setAuthenticatorPassword] = useState('')
   const [totpURI, setTotpURI] = useState('')
   const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [verified, setVerified] = useState(false)
@@ -24,7 +23,6 @@ export function SecuritySetupForm({ mustChangePassword }: { mustChangePassword: 
       setError('Não foi possível iniciar a configuração do autenticador. Confira a senha e tente novamente.')
       return
     }
-    setAuthenticatorPassword(password)
     setTotpURI(result.data.totpURI)
     setBackupCodes(result.data.backupCodes)
   }
