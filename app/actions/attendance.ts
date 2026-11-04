@@ -271,7 +271,7 @@ export interface BatchAttendanceInput {
  */
 export async function recordAttendance(data: AttendanceInput | BatchAttendanceInput) {
   try {
-    const { schoolId: authorizedSchoolId, userId } = await requireSchoolAction('school:manage_attendance')
+    const { schoolId: authorizedSchoolId, userId } = await requireSchoolAction('school:manage_all_attendance')
     if (!data.schoolId || !data.date || data.schoolId !== authorizedSchoolId) {
       return { success: false, error: 'Escola e data são obrigatórias para registro de frequência.' }
     }
@@ -394,7 +394,7 @@ export async function recordAttendance(data: AttendanceInput | BatchAttendanceIn
  */
 export async function getStudentAttendanceSummary(studentId: string, schoolId: string) {
   try {
-    const { schoolId: authorizedSchoolId } = await requireSchoolAction('school:manage_attendance')
+    const { schoolId: authorizedSchoolId } = await requireSchoolAction('school:manage_all_attendance')
     if (!studentId || !schoolId || schoolId !== authorizedSchoolId) {
       return { success: false, error: 'Aluno e escola são obrigatórios.' }
     }
