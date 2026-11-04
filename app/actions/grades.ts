@@ -1,6 +1,6 @@
 'use server'
 
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { recordAudit } from '@/lib/audit'
@@ -76,6 +76,24 @@ export async function archiveAssessment(formData: FormData): Promise<void> {
     const { schoolId, userId, scope } = await gradingContext()
     const a = await getAssessment(schoolId, assessmentId)
     if (!a || !(await getClassSubjectForGrading(schoolId, a.classSubjectId, scope))) return
+    const historical = await db
+      .select({ studentId: assessmentScore.studentId })
+      .from(assessmentScore)
+      .innerJoin(student, and(eq(student.id, assessmentScore.studentId), eq(student.schoolId, assessmentScore.schoolId)))
+      .innerJoin(studentPassport, eq(studentPassport.id, student.passportId))
+      .where(and(eq(assessmentScore.assessmentId, a.id), ne(studentPassport.currentSchoolId, schoolId)))
+      .limit(1)
+    if (historical[0]) {
+      await recordAudit({
+        action: 'student.edit_blocked',
+        entityType: 'student',
+        entityId: historical[0].studentId,
+        schoolId,
+        actorUserId: userId,
+        metadata: { operation: 'assessment.archive', assessmentId: a.id },
+      })
+      return
+    }
     await db
       .update(assessment)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
