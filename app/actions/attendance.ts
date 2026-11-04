@@ -36,7 +36,7 @@ function formatBR(iso: string) {
 
 export async function saveAttendance(_: ActionState, formData: FormData): Promise<ActionState> {
   return runAction('attendance.save_failed', async () => {
-    const { ctx, schoolId, userId } = await requireSchoolAction('school:manage_attendance')
+    const { ctx, schoolId, userId } = await requireSchoolAction('school:manage_all_attendance')
     const scope = await gradeScope(schoolId, ctx.active?.role ?? null, userId, ctx.user.email)
 
     const classSubjectId = String(formData.get('classSubjectId') ?? '')
