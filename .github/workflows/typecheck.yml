@@ -59,5 +59,6 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f migrations/0012_student_passport.sql
           psql -v ON_ERROR_STOP=1 -f migrations/0013_student_history_immutability.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/0014_super_admin_and_authenticator_security.sql
       - name: Verify transfer ownership and historical write guards
         run: psql -v ON_ERROR_STOP=1 -f scripts/security/history-write-guards.sql
