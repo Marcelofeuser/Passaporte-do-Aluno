@@ -440,3 +440,31 @@ BEGIN
   END IF;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION pa_validate_transfer_request_create()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  current_school uuid;
+  current_student uuid;
+BEGIN
+  SELECT current_school_id, current_student_id
+  INTO current_school, current_student
+  FROM student_passport
+  WHERE id = NEW.passport_id
+  FOR UPDATE;
+
+  IF NEW.status <> 'PENDING'
+     OR current_school IS DISTINCT FROM NEW.from_school_id
+     OR current_student IS DISTINCT FROM NEW.from_student_id
+     OR NEW.from_school_id = NEW.to_school_id THEN
+    RAISE EXCEPTION 'Transfer request must start from the passport current school and student'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS pa_transfer_request_create_guard ON student_transfer;
+CREATE TRIGGER pa_transfer_request_create_guard
+BEFORE INSERT ON student_transfer
+FOR EACH ROW EXECUTE FUNCTION pa_validate_transfer_request_create();
