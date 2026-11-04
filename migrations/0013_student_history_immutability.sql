@@ -248,7 +248,7 @@ BEGIN
 END;
 $$;
 
-DO $
+DO $$
 DECLARE
   table_name text;
 BEGIN
