@@ -22,4 +22,7 @@ export const achievementInput = z.object({
   title: z.string().trim().min(3, 'Informe um título').max(120, 'Máximo de 120 caracteres'),
   description: z.string().trim().min(3, 'Descreva a conquista').max(2000, 'Máximo de 2.000 caracteres'),
   achievedOn: z.iso.date('Informe uma data válida'),
+}).refine((entry) => entry.achievedOn <= new Date().toISOString().slice(0, 10), {
+  path: ['achievedOn'],
+  message: 'A data da conquista não pode estar no futuro',
 })
