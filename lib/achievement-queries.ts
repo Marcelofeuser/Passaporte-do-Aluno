@@ -86,15 +86,8 @@ export async function listStudentAchievements(schoolId: string, studentId: strin
       createdAt: studentAchievement.createdAt,
     })
     .from(studentAchievement)
-    .innerJoin(
-      student,
-      and(
-        eq(student.id, studentAchievement.studentId),
-        eq(student.schoolId, studentAchievement.schoolId),
-        isNull(student.deletedAt),
-      ),
-    )
-    .where(and(eq(studentAchievement.schoolId, schoolId), eq(studentAchievement.studentId, studentId)))
+    .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
+    .where(and(eq(studentPassport.currentSchoolId, schoolId), eq(studentPassport.currentStudentId, studentId)))
     .orderBy(desc(studentAchievement.achievedOn), desc(studentAchievement.createdAt))
     .limit(200)
 }
