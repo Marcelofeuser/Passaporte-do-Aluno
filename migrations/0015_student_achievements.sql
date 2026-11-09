@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS student_achievement (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   school_id UUID NOT NULL REFERENCES school(id) ON DELETE RESTRICT,
   student_id UUID NOT NULL REFERENCES student(id) ON DELETE RESTRICT,
+  passport_id UUID NOT NULL REFERENCES student_passport(id) ON DELETE RESTRICT,
   category TEXT NOT NULL CHECK (category IN (
     'ACADEMIC', 'SPORTS', 'ARTS', 'SCIENCE', 'SOCIAL',
     'TECHNOLOGY', 'LANGUAGES', 'OTHER'
@@ -17,7 +18,9 @@ CREATE TABLE IF NOT EXISTS student_achievement (
   CONSTRAINT student_achievement_evidence_complete CHECK (
     (evidence_pathname IS NULL AND evidence_content_type IS NULL AND evidence_size_bytes IS NULL)
     OR
-    (evidence_pathname IS NOT NULL AND evidence_content_type IN ('image/png', 'image/jpeg', 'image/webp', 'application/pdf')
+    (evidence_pathname IS NOT NULL AND evidence_content_type IS NOT NULL
+     AND evidence_content_type IN ('image/png', 'image/jpeg', 'image/webp', 'application/pdf')
+     AND evidence_size_bytes IS NOT NULL
      AND evidence_size_bytes BETWEEN 1 AND 10485760)
   )
 );
