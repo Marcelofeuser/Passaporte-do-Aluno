@@ -45,9 +45,20 @@ export default async function PrintAchievementPassport({
               <h2 className="mt-2 text-lg font-bold">{item.title}</h2>
               <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{item.description}</p>
               {item.evidencePathname ? (
-                <p className="mt-2 text-xs text-muted-foreground print:hidden">
-                  Evidência digital: <a href={fileUrl(item.evidencePathname)} className="underline" target="_blank" rel="noreferrer">abrir arquivo</a>
-                </p>
+                item.evidenceContentType?.startsWith('image/') ? (
+                  <figure className="mt-3 break-inside-avoid">
+                    <img
+                      src={fileUrl(item.evidencePathname)}
+                      alt={`Evidência da conquista: ${item.title}`}
+                      className="max-h-72 max-w-full rounded-lg object-contain print:max-h-56 print:rounded-none"
+                    />
+                    <figcaption className="mt-1 text-xs text-muted-foreground">Evidência da conquista</figcaption>
+                  </figure>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Evidência em PDF: <a href={fileUrl(item.evidencePathname)} className="underline" target="_blank" rel="noreferrer">abrir arquivo antes de imprimir</a>
+                  </p>
+                )
               ) : null}
             </li>
           ))}
