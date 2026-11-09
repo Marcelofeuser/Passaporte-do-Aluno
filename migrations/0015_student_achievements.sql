@@ -25,8 +25,24 @@ CREATE TABLE IF NOT EXISTS student_achievement (
   )
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_student_id_school_passport
+  ON student (id, school_id, passport_id);
+
+DO $
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'student_achievement_student_passport_fk') THEN
+    ALTER TABLE student_achievement
+      ADD CONSTRAINT student_achievement_student_passport_fk
+      FOREIGN KEY (student_id, school_id, passport_id)
+      REFERENCES student (id, school_id, passport_id) ON DELETE RESTRICT;
+  END IF;
+END;
+$;
+
 CREATE INDEX IF NOT EXISTS idx_student_achievement_student_date
   ON student_achievement (school_id, student_id, achieved_on DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_student_achievement_passport_date
+  ON student_achievement (passport_id, achieved_on DESC, created_at DESC);
 
 -- Keep achievement records append-only and block writes after a student transfer.
 DROP TRIGGER IF EXISTS pa_achievement_history_guard ON student_achievement;
