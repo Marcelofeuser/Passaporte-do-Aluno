@@ -45,6 +45,7 @@ const PERMISSIONS = {
   'school:view_calendar': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER', 'LIBRARIAN'],
   'school:manage_appointments': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
   'school:manage_discipline': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
+  'school:manage_achievements': ['SCHOOL_ADMIN', 'COORDINATOR', 'TEACHER'],
   'school:manage_all_discipline': ['SCHOOL_ADMIN', 'COORDINATOR'],
   'family:book_appointments': ['PARENT', 'STUDENT'],
   'family:view': ['PARENT', 'STUDENT'],
