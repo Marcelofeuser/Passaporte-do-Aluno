@@ -39,6 +39,7 @@ export default async function FamilyAchievementsPage({
               {students.map((item) => <option key={item.id} value={item.id}>{item.socialName || item.fullName}</option>)}
             </Select>
           </Field>
+          <button className="mt-2 h-10 rounded-lg border border-border px-4 text-sm font-semibold hover:bg-muted">Abrir passaporte</button>
         </form>
       ) : null}
       {canCreate ? (
