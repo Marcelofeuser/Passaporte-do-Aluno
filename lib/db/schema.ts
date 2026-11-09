@@ -687,3 +687,22 @@ export const studentAttendance = pgTable('student_attendance', {
 })
 
 
+
+export const studentAchievement = pgTable(
+  'student_achievement',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    schoolId: uuid('school_id').notNull(),
+    studentId: uuid('student_id').notNull(),
+    category: text('category').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    achievedOn: date('achieved_on').notNull(),
+    evidencePathname: text('evidence_pathname'),
+    evidenceContentType: text('evidence_content_type'),
+    evidenceSizeBytes: integer('evidence_size_bytes'),
+    recordedByUserId: text('recorded_by_user_id').notNull(),
+    createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  },
+  (t) => [index('idx_student_achievement_student_date').on(t.schoolId, t.studentId, t.achievedOn.desc(), t.createdAt.desc())],
+)
