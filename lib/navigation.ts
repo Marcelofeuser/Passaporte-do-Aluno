@@ -3,7 +3,7 @@ import { can, type Permission, type Role } from '@/lib/rbac'
 export type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'schools' | 'school' | 'users' | 'audit' | 'bell' | 'user' | 'family' | 'library' | 'calendar'
+  icon: 'home' | 'schools' | 'school' | 'users' | 'audit' | 'bell' | 'user' | 'family' | 'library' | 'calendar' | 'trophy'
 }
 
 export function navFor(role: Role | null | undefined, superAdmin: boolean): NavItem[] {
@@ -12,10 +12,12 @@ export function navFor(role: Role | null | undefined, superAdmin: boolean): NavI
   if (role !== 'SUPER_ADMIN' && (can(role, 'school:view_academic') || can(role, 'school:view_users') || can(role, 'school:manage_library'))) {
     items.push({ href: '/school', label: 'Escola', icon: 'school' })
   }
+  if (can(role, 'school:manage_achievements')) items.push({ href: '/school/achievements', label: 'Conquistas', icon: 'trophy' })
   if (can(role, 'family:view')) {
     items.push({ href: '/family', label: role === 'STUDENT' ? 'Meu boletim' : 'Meus filhos', icon: 'family' })
     items.push({ href: '/family/library', label: 'Biblioteca', icon: 'library' })
     items.push({ href: '/family/agenda', label: 'Agenda', icon: 'calendar' })
+    items.push({ href: '/family/achievements', label: 'Conquistas', icon: 'trophy' })
   }
   if (superAdmin || can(role, 'school:view_audit')) {
     items.push({ href: '/audit', label: 'Auditoria', icon: 'audit' })
@@ -37,6 +39,7 @@ export const SCHOOL_SECTIONS: SchoolSection[] = [
   { href: '/school/enrollments', label: 'Matrículas', description: 'Ingressos, rematrículas, contratos e situação documental', permission: 'school:view_students' },
   { href: '/school/transfers', label: 'Transferências', description: 'Solicitações recebidas e mudança de escola responsável', permission: 'school:view_students' },
   { href: '/school/classes', label: 'Turmas', description: 'Turmas por ano letivo, disciplinas e alunos', permission: 'school:view_academic' },
+  { href: '/school/achievements', label: 'Passaporte de conquistas', description: 'Registros, categorias e evidências dos alunos', permission: 'school:manage_achievements' },
   { href: '/school/grades', label: 'Diário e notas', description: 'Avaliações, lançamento de notas e médias', permission: 'school:manage_grades' },
   { href: '/school/attendance', label: 'Chamada e frequência', description: 'Presenças, faltas, atrasos e alertas', permission: 'school:manage_attendance' },
   { href: '/school/occurrences', label: 'Ocorrências', description: 'Registro disciplinar, acompanhamento e avisos à família', permission: 'school:manage_discipline' },
