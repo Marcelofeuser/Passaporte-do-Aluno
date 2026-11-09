@@ -7,7 +7,7 @@ import { AchievementTimeline } from '@/components/school/achievement-timeline'
 import { createAchievement } from '@/app/actions/achievements'
 import { ACHIEVEMENT_CATEGORIES } from '@/lib/achievements'
 import { listAchievementStudents, listStudentAchievements } from '@/lib/achievement-queries'
-import { requireSchoolPage, formatDate } from '@/lib/school-page'
+import { requireSchoolPage } from '@/lib/school-page'
 
 export const metadata: Metadata = { title: 'Passaporte de conquistas' }
 
