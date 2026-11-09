@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS student_achievement (
   evidence_size_bytes INTEGER,
   recorded_by_user_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT student_achievement_evidence_path_check CHECK (
+    evidence_pathname IS NULL OR evidence_pathname LIKE ('schools/' || school_id::text || '/achievements/' || student_id::text || '/%')
+  ),
   CONSTRAINT student_achievement_evidence_complete CHECK (
     (evidence_pathname IS NULL AND evidence_content_type IS NULL AND evidence_size_bytes IS NULL)
     OR
@@ -49,3 +52,16 @@ DROP TRIGGER IF EXISTS pa_achievement_history_guard ON student_achievement;
 CREATE TRIGGER pa_achievement_history_guard
 BEFORE INSERT OR UPDATE OR DELETE ON student_achievement
 FOR EACH ROW EXECUTE FUNCTION pa_guard_student_history_write();
+
+CREATE OR REPLACE FUNCTION pa_reject_student_achievement_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+  RAISE EXCEPTION 'Achievement records are append-only'
+    USING ERRCODE = '42501';
+END;
+$;
+
+DROP TRIGGER IF EXISTS pa_achievement_append_only_guard ON student_achievement;
+CREATE TRIGGER pa_achievement_append_only_guard
+BEFORE UPDATE OR DELETE ON student_achievement
+FOR EACH ROW EXECUTE FUNCTION pa_reject_student_achievement_mutation();
