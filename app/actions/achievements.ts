@@ -58,6 +58,12 @@ export async function createAchievement(_: ActionState, formData: FormData): Pro
     if (!(await isCurrentPassportStudent(schoolId, studentId))) {
       return { ok: false, message: 'Este aluno não está sob responsabilidade atual da escola.' }
     }
+    const [localStudent] = await db
+      .select({ passportId: student.passportId })
+      .from(student)
+      .where(and(eq(student.id, studentId), eq(student.schoolId, schoolId), isNull(student.deletedAt)))
+      .limit(1)
+    if (!localStudent) return { ok: false, message: 'Cadastro do aluno não encontrado.' }
 
     const file = getUploadedFile(formData, 'evidence')
     let stored: Awaited<ReturnType<typeof storeSchoolFile>> | null = null
@@ -85,6 +91,7 @@ export async function createAchievement(_: ActionState, formData: FormData): Pro
         .values({
           schoolId,
           studentId,
+          passportId: localStudent.passportId,
           category: parsed.data.category,
           title: parsed.data.title,
           description: parsed.data.description,
