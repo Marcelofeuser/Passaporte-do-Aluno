@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { ActionForm } from '@/components/school/action-form'
 import { FileField, Textarea } from '@/components/school/form-fields'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
@@ -89,7 +90,7 @@ export default async function SchoolAchievementsPage({
                   </Select>
                 </Field>
                 <button className="h-10 rounded-lg border border-border px-4 text-sm font-semibold hover:bg-muted">Filtrar</button>
-                <Link href="/school/achievements?student={selected.id}" className="text-sm text-muted-foreground underline">Limpar filtros</Link>
+                <Link href={`/school/achievements?student=${selected.id}`} className="text-sm text-muted-foreground underline">Limpar filtros</Link>
               </form>
               <div className="flex flex-col gap-3">
                 <h2 className="text-lg font-bold">Linha do tempo</h2>
