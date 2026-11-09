@@ -4,12 +4,12 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { student, studentAchievement, studentDocument, studentPassport } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
-import { can, type Role } from '@/lib/rbac'
+import { can } from '@/lib/rbac'
 import { getFamilyStudents } from '@/lib/attendance-queries'
 import { teacherCanRecordAchievement } from '@/lib/achievement-queries'
 import { getAppContext, roleInSchool } from '@/lib/session'
 
-const PATH_RE = /^schools\\/([0-9a-f-]{36})\\/(branding|students|achievements)\\/[\\w/.-]+$/i
+const PATH_RE = /^schools\/([0-9a-f-]{36})\/(branding|students|achievements)\/[\w/.-]+$/i
 
 /**
  * Entrega arquivos privados do Blob a quem tem vínculo escolar, acesso familiar
@@ -31,12 +31,13 @@ export async function GET(request: NextRequest) {
       .select({
         currentSchoolId: studentPassport.currentSchoolId,
         currentStudentId: studentPassport.currentStudentId,
+        recordedSchoolId: studentAchievement.schoolId,
       })
       .from(studentAchievement)
       .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
       .where(eq(studentAchievement.evidencePathname, pathname))
       .limit(1)
-    if (!achievement) return new NextResponse('Not found', { status: 404 })
+    if (!achievement || achievement.recordedSchoolId !== schoolId) return new NextResponse('Not found', { status: 404 })
 
     const currentRole = roleInSchool(ctx, achievement.currentSchoolId)
     const staffAllowed =
