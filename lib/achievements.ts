@@ -21,5 +21,5 @@ export const achievementInput = z.object({
   category: z.enum(['ACADEMIC', 'SPORTS', 'ARTS', 'SCIENCE', 'SOCIAL', 'TECHNOLOGY', 'LANGUAGES', 'OTHER']),
   title: z.string().trim().min(3, 'Informe um título').max(120, 'Máximo de 120 caracteres'),
   description: z.string().trim().min(3, 'Descreva a conquista').max(2000, 'Máximo de 2.000 caracteres'),
-  achievedOn: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/, 'Informe uma data válida'),
+  achievedOn: z.iso.date('Informe uma data válida'),
 })
