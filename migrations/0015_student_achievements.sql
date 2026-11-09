@@ -54,12 +54,12 @@ BEFORE INSERT OR UPDATE OR DELETE ON student_achievement
 FOR EACH ROW EXECUTE FUNCTION pa_guard_student_history_write();
 
 CREATE OR REPLACE FUNCTION pa_reject_student_achievement_mutation()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS $function$
 BEGIN
   RAISE EXCEPTION 'Achievement records are append-only'
     USING ERRCODE = '42501';
 END;
-$;
+$function$;
 
 DROP TRIGGER IF EXISTS pa_achievement_append_only_guard ON student_achievement;
 CREATE TRIGGER pa_achievement_append_only_guard
