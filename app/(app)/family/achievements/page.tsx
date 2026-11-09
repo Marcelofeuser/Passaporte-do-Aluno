@@ -35,7 +35,7 @@ export default async function FamilyAchievementsPage({
       {students.length > 1 ? (
         <form method="get">
           <Field label="Aluno" htmlFor="family-achievement-student">
-            <Select id="family-achievement-student" name="student" defaultValue={selected.id} onChange="this.form.submit()">
+            <Select id="family-achievement-student" name="student" defaultValue={selected.id}>
               {students.map((item) => <option key={item.id} value={item.id}>{item.socialName || item.fullName}</option>)}
             </Select>
           </Field>
