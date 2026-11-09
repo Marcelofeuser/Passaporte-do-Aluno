@@ -694,6 +694,7 @@ export const studentAchievement = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     schoolId: uuid('school_id').notNull(),
     studentId: uuid('student_id').notNull(),
+    passportId: uuid('passport_id').notNull(),
     category: text('category').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull(),
