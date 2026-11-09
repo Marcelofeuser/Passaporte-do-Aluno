@@ -16,13 +16,16 @@ export const metadata: Metadata = { title: 'Conquistas' }
 export default async function FamilyAchievementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ student?: string }>
+  searchParams: Promise<{ student?: string; category?: string; year?: string }>
 }) {
   const { ctx, schoolId, role } = await requireSchoolPage('family:view')
   const students = await getFamilyStudents(schoolId, role === 'STUDENT' ? 'STUDENT' : 'PARENT', ctx.user.id, ctx.user.email)
   const params = await searchParams
   const selected = students.find((item) => item.id === params.student) ?? students[0] ?? null
-  const items = selected ? await listStudentAchievements(schoolId, selected.id) : []
+  const category = Object.keys(ACHIEVEMENT_CATEGORIES).includes(params.category ?? '') ? params.category : undefined
+  const parsedYear = Number(params.year)
+  const year = Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100 ? parsedYear : undefined
+  const items = selected ? await listStudentAchievements(schoolId, selected.id, { category, year }) : []
   const canCreate = role === 'STUDENT'
   const today = new Date().toISOString().slice(0, 10)
 
@@ -67,6 +70,23 @@ export default async function FamilyAchievementsPage({
           </ActionForm>
         </Card>
       ) : null}
+      <form method="get" className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
+        <input type="hidden" name="student" value={selected.id} />
+        <Field label="Categoria" htmlFor="family-achievement-filter-category">
+          <Select id="family-achievement-filter-category" name="category" defaultValue={category ?? ''}>
+            <option value="">Todas</option>
+            {Object.entries(ACHIEVEMENT_CATEGORIES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </Select>
+        </Field>
+        <Field label="Ano" htmlFor="family-achievement-filter-year">
+          <Select id="family-achievement-filter-year" name="year" defaultValue={year?.toString() ?? ''}>
+            <option value="">Todos</option>
+            {Array.from({ length: 7 }, (_, index) => new Date().getUTCFullYear() - index).map((item) => <option key={item} value={item}>{item}</option>)}
+          </Select>
+        </Field>
+        <button className="h-10 rounded-lg border border-border px-4 text-sm font-semibold hover:bg-muted">Filtrar</button>
+        <Link href="/family/achievements?student={selected.id}" className="text-sm text-muted-foreground underline">Limpar filtros</Link>
+      </form>
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">Linha do tempo</h2>
         <AchievementTimeline items={items} />
