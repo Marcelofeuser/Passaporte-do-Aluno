@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { classSubject, enrollment, schoolClass, student, studentAchievement, studentPassport, teacher } from '@/lib/db/schema'
 import type { Role } from '@/lib/rbac'
@@ -90,4 +90,56 @@ export async function listStudentAchievements(schoolId: string, studentId: strin
     .where(and(eq(studentPassport.currentSchoolId, schoolId), eq(studentPassport.currentStudentId, studentId)))
     .orderBy(desc(studentAchievement.achievedOn), desc(studentAchievement.createdAt))
     .limit(200)
+}
+
+
+export async function getAchievementStats(schoolId: string, studentIds: string[]) {
+  const empty = { total: 0, thisYear: 0, categories: [] as { category: string; total: number }[], months: [] as { month: string; total: number }[] }
+  if (studentIds.length === 0) return empty
+
+  const yearStart = `${new Date().getUTCFullYear()}-01-01`
+  const [allTime] = await db
+    .select({ total: count() })
+    .from(studentAchievement)
+    .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
+    .where(and(
+      eq(studentPassport.currentSchoolId, schoolId),
+      inArray(studentPassport.currentStudentId, studentIds),
+    ))
+  const [year] = await db
+    .select({ total: count() })
+    .from(studentAchievement)
+    .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
+    .where(and(
+      eq(studentPassport.currentSchoolId, schoolId),
+      inArray(studentPassport.currentStudentId, studentIds),
+      gte(studentAchievement.achievedOn, yearStart),
+    ))
+  const categories = await db
+    .select({ category: studentAchievement.category, total: count() })
+    .from(studentAchievement)
+    .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
+    .where(and(
+      eq(studentPassport.currentSchoolId, schoolId),
+      inArray(studentPassport.currentStudentId, studentIds),
+    ))
+    .groupBy(studentAchievement.category)
+    .orderBy(desc(count()))
+
+  const months = await db
+    .select({
+      month: sql<string>`to_char(${studentAchievement.achievedOn}::date, 'YYYY-MM')`,
+      total: count(),
+    })
+    .from(studentAchievement)
+    .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
+    .where(and(
+      eq(studentPassport.currentSchoolId, schoolId),
+      inArray(studentPassport.currentStudentId, studentIds),
+      gte(studentAchievement.achievedOn, yearStart),
+    ))
+    .groupBy(sql`to_char(${studentAchievement.achievedOn}::date, 'YYYY-MM')`)
+    .orderBy(sql`to_char(${studentAchievement.achievedOn}::date, 'YYYY-MM')`)
+
+  return { total: allTime?.total ?? 0, thisYear: year?.total ?? 0, categories, months }
 }
