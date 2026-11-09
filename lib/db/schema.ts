@@ -705,5 +705,8 @@ export const studentAchievement = pgTable(
     recordedByUserId: text('recorded_by_user_id').notNull(),
     createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   },
-  (t) => [index('idx_student_achievement_student_date').on(t.schoolId, t.studentId, t.achievedOn.desc(), t.createdAt.desc())],
+  (t) => [
+    index('idx_student_achievement_student_date').on(t.schoolId, t.studentId, t.achievedOn.desc(), t.createdAt.desc()),
+    index('idx_student_achievement_passport_date').on(t.passportId, t.achievedOn.desc(), t.createdAt.desc()),
+  ],
 )
