@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS student_achievement (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_student_id_school_passport
   ON student (id, school_id, passport_id);
 
-DO $
+DO $migration$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'student_achievement_student_passport_fk') THEN
     ALTER TABLE student_achievement
@@ -37,7 +37,7 @@ BEGIN
       REFERENCES student (id, school_id, passport_id) ON DELETE RESTRICT;
   END IF;
 END;
-$;
+$migration$;
 
 CREATE INDEX IF NOT EXISTS idx_student_achievement_student_date
   ON student_achievement (school_id, student_id, achieved_on DESC, created_at DESC);
