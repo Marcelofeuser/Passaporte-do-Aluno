@@ -4,9 +4,10 @@ import { FileField, Textarea } from '@/components/school/form-fields'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
 import { Field, Input, Select } from '@/components/ui/field'
 import { AchievementTimeline } from '@/components/school/achievement-timeline'
+import { AchievementSummary } from '@/components/school/achievement-summary'
 import { createAchievement } from '@/app/actions/achievements'
 import { ACHIEVEMENT_CATEGORIES } from '@/lib/achievements'
-import { listAchievementStudents, listStudentAchievements } from '@/lib/achievement-queries'
+import { getAchievementStats, listAchievementStudents, listStudentAchievements } from '@/lib/achievement-queries'
 import { requireSchoolPage } from '@/lib/school-page'
 
 export const metadata: Metadata = { title: 'Passaporte de conquistas' }
@@ -19,6 +20,7 @@ export default async function SchoolAchievementsPage({
   const { ctx, schoolId, role } = await requireSchoolPage('school:manage_achievements')
   const params = await searchParams
   const students = await listAchievementStudents(schoolId, role, ctx.user.id)
+  const stats = await getAchievementStats(schoolId, students.map((item) => item.id))
   const selected = students.find((item) => item.id === params.student) ?? students[0] ?? null
   const items = selected ? await listStudentAchievements(schoolId, selected.id) : []
   const today = new Date().toISOString().slice(0, 10)
@@ -26,6 +28,7 @@ export default async function SchoolAchievementsPage({
   return (
     <>
       <PageTitle title="Passaporte de conquistas" description="Registre e acompanhe conquistas dos alunos das suas turmas." />
+      <AchievementSummary stats={stats} />
       {students.length === 0 ? (
         <Card><EmptyState title="Nenhum aluno disponível" description="Alunos matriculados em suas turmas aparecerão aqui." /></Card>
       ) : (
