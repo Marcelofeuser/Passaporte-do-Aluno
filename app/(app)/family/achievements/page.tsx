@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ActionForm } from '@/components/school/action-form'
-import { PrintButton } from '@/components/school/print-button'
 import { FileField, Textarea } from '@/components/school/form-fields'
 import { Card, CardHeader, EmptyState, PageTitle } from '@/components/ui/card'
 import { Field, Input, Select } from '@/components/ui/field'
@@ -35,7 +34,7 @@ export default async function FamilyAchievementsPage({
     <>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageTitle title={role === 'STUDENT' ? 'Meu passaporte de conquistas' : 'Conquistas'} description={selected.socialName || selected.fullName} />
-        <Link href={`/family/achievements/print?student=${selected.id}`}><PrintButton /></Link>
+        <Link href={`/family/achievements/print?student=${selected.id}`} className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground">Imprimir ou salvar em PDF</Link>
       </div>
       {students.length > 1 ? (
         <form method="get">
