@@ -14,20 +14,23 @@ export const metadata: Metadata = { title: 'Passaporte de conquistas' }
 export default async function PrintAchievementPassport({
   searchParams,
 }: {
-  searchParams: Promise<{ student?: string }>
+  searchParams: Promise<{ student?: string; category?: string; year?: string }>
 }) {
   const { ctx, schoolId, role } = await requireSchoolPage('family:view')
   const students = await getFamilyStudents(schoolId, role === 'STUDENT' ? 'STUDENT' : 'PARENT', ctx.user.id, ctx.user.email)
   const params = await searchParams
   const selected = students.find((item) => item.id === params.student)
   if (!selected) notFound()
-  const items = await listStudentAchievements(schoolId, selected.id)
+  const category = Object.keys(ACHIEVEMENT_CATEGORIES).includes(params.category ?? '') ? params.category : undefined
+  const parsedYear = Number(params.year)
+  const year = Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100 ? parsedYear : undefined
+  const items = await listStudentAchievements(schoolId, selected.id, { category, year })
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 print:max-w-none print:gap-3">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <PageTitle title="Passaporte de conquistas" description={selected.socialName || selected.fullName} />
+          <PageTitle title="Passaporte de conquistas" description={`${selected.socialName || selected.fullName}${category || year ? ` · ${category ? achievementCategoryLabel(category) : 'Todas as categorias'}${year ? ` · ${year}` : ''}` : ''}`} />
           <p className="mt-1 text-sm text-muted-foreground">Gerado em {formatDate(new Date())}</p>
         </div>
         <PrintButton />
