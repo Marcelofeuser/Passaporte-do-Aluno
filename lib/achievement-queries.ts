@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { classSubject, enrollment, schoolClass, student, studentAchievement, studentPassport, teacher } from '@/lib/db/schema'
 import type { Role } from '@/lib/rbac'
@@ -72,7 +72,17 @@ export async function teacherCanRecordAchievement(schoolId: string, studentId: s
   return Boolean(row)
 }
 
-export async function listStudentAchievements(schoolId: string, studentId: string) {
+export async function listStudentAchievements(
+  schoolId: string,
+  studentId: string,
+  filters: { category?: string; year?: number } = {},
+) {
+  const conditions = [eq(studentPassport.currentSchoolId, schoolId), eq(studentPassport.currentStudentId, studentId)]
+  if (filters.category) conditions.push(eq(studentAchievement.category, filters.category))
+  if (filters.year && Number.isInteger(filters.year) && filters.year >= 2000 && filters.year <= 2100) {
+    conditions.push(gte(studentAchievement.achievedOn, `${filters.year}-01-01`))
+    conditions.push(lte(studentAchievement.achievedOn, `${filters.year}-12-31`))
+  }
   return db
     .select({
       id: studentAchievement.id,
@@ -87,9 +97,9 @@ export async function listStudentAchievements(schoolId: string, studentId: strin
     })
     .from(studentAchievement)
     .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
-    .where(and(eq(studentPassport.currentSchoolId, schoolId), eq(studentPassport.currentStudentId, studentId)))
+    .where(and(...conditions))
     .orderBy(desc(studentAchievement.achievedOn), desc(studentAchievement.createdAt))
-    .limit(200)
+    .limit(500)
 }
 
 
