@@ -2,16 +2,18 @@ import { get } from '@vercel/blob'
 import { and, eq, isNull } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { student, studentDocument, studentPassport } from '@/lib/db/schema'
+import { student, studentAchievement, studentDocument, studentPassport } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
 import { can } from '@/lib/rbac'
+import { getFamilyStudents } from '@/lib/attendance-queries'
+import { teacherCanRecordAchievement } from '@/lib/achievement-queries'
 import { getAppContext, roleInSchool } from '@/lib/session'
 
-const PATH_RE = /^schools\/([0-9a-f-]{36})\/(branding|students)\/[\w/.-]+$/i
+const PATH_RE = /^schools\/([0-9a-f-]{36})\/(branding|students|achievements)\/[\w/.-]+$/i
 
 /**
- * Entrega arquivos privados do Blob. A escola é extraída do prefixo do caminho e o usuário
- * precisa ter vínculo ativo com ela. Fotos e documentos de alunos exigem permissão de secretaria.
+ * Entrega arquivos privados do Blob a quem tem vínculo escolar, acesso familiar
+ * ao aluno ou atribuição docente à turma. O caminho, por si só, não concede acesso.
  */
 export async function GET(request: NextRequest) {
   const pathname = request.nextUrl.searchParams.get('pathname') ?? ''
@@ -24,6 +26,36 @@ export async function GET(request: NextRequest) {
 
   if (area === 'branding') {
     if (!roleInSchool(ctx, schoolId)) return new NextResponse('Forbidden', { status: 403 })
+  } else if (area === 'achievements') {
+    const [achievement] = await db
+      .select({
+        currentSchoolId: studentPassport.currentSchoolId,
+        currentStudentId: studentPassport.currentStudentId,
+        recordedSchoolId: studentAchievement.schoolId,
+      })
+      .from(studentAchievement)
+      .innerJoin(studentPassport, eq(studentPassport.id, studentAchievement.passportId))
+      .where(eq(studentAchievement.evidencePathname, pathname))
+      .limit(1)
+    if (!achievement || achievement.recordedSchoolId !== schoolId) return new NextResponse('Not found', { status: 404 })
+
+    const currentRole = roleInSchool(ctx, achievement.currentSchoolId)
+    const staffAllowed =
+      achievement.currentSchoolId === schoolId &&
+      (currentRole === 'TEACHER'
+        ? await teacherCanRecordAchievement(achievement.currentSchoolId, achievement.currentStudentId, ctx.user.id)
+        : can(currentRole, 'school:manage_achievements'))
+    let familyAllowed = false
+    if (!staffAllowed && (currentRole === 'PARENT' || currentRole === 'STUDENT')) {
+      const linked = await getFamilyStudents(
+        achievement.currentSchoolId,
+        currentRole,
+        ctx.user.id,
+        ctx.user.email,
+      )
+      familyAllowed = linked.some((item) => item.id === achievement.currentStudentId)
+    }
+    if (!staffAllowed && !familyAllowed) return new NextResponse('Forbidden', { status: 403 })
   } else {
     const sourceAllowed = can(roleInSchool(ctx, schoolId), 'school:view_students')
     const [document] = await db
